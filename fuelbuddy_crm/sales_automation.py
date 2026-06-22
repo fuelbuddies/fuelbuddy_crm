@@ -2,7 +2,7 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe.model.workflow import apply_workflow
+from frappe.model.workflow import apply_workflow, get_workflow_name
 from frappe.utils import add_months, flt, get_first_day, get_last_day, getdate, nowdate
 
 # Sales Order workflow: "Approved" is the only docstatus=1 state, reached via the
@@ -268,10 +268,17 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 	for row in so.items:
 		row.delivery_date = month_end
 
-	# Create in the workflow's draft state, then approve -> submitted (docstatus 1).
-	so.workflow_state = "Pending"
-	so.insert(ignore_permissions=True)
-	apply_workflow(so, SO_APPROVE_ACTION)
+	# Submit the SO. If Sales Order is under an active workflow, create it in the
+	# initial "Pending" state and drive it to submitted via the "Approve"
+	# transition. Otherwise (no workflow configured -- SOs are submitted directly
+	# on this site, same as the manual "Create Sales Order" flow) just submit.
+	if get_workflow_name("Sales Order"):
+		so.workflow_state = "Pending"
+		so.insert(ignore_permissions=True)
+		apply_workflow(so, SO_APPROVE_ACTION)
+	else:
+		so.insert(ignore_permissions=True)
+		so.submit()
 
 	if set_stage and opportunity:
 		frappe.db.set_value("Opportunity", opportunity, "sales_stage", "Sales Order Created")
