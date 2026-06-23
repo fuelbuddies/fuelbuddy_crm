@@ -49,17 +49,13 @@ def create_for_quotation(doc, method=None):
 		if get_quotation_dossier(doc.name):
 			return
 
-		# The Finance Dossier address must be the customer's BILLING address.
-		# Quotation.customer_address is the billing address -- never fall back to the
-		# shipping address. If the Quotation has none, use the Opportunity's billing
-		# address; if neither exists, skip creation (Address is mandatory on the FD).
+		# The Finance Dossier uses the SAME billing address as the Quotation
+		# (Quotation.customer_address is the billing address). Billing is enforced
+		# upstream when the Quotation is created, so there is no shipping/Opportunity
+		# fallback here; if somehow absent, skip (Address is mandatory on the FD).
 		address = doc.get("customer_address")
-		if not address and doc.get("custom_opportunity_from"):
-			address = frappe.db.get_value(
-				"Opportunity", doc.custom_opportunity_from, "custom_customer_billing_address"
-			)
 		if not address:
-			_log("skipped: no billing address available yet", quotation=doc.name)
+			_log("skipped: Quotation has no billing address", quotation=doc.name)
 			return
 
 		# custom_discount_type may have been repointed at the Quotation's own
