@@ -251,21 +251,39 @@ override_doctype_dashboards = {
 # ignore_translatable_strings_from = []
 
 
-# Fixtures: all CRM customizations on Opportunity, Quotation, Lead, Customer
+# Fixtures: all CRM customizations on Opportunity, Quotation, Lead, Customer.
+# Sales Order carries only the read-only Discount tab custom fields (mirrored from
+# the Quotation), so it is included in the Custom Field filter only -- not in the
+# client/server-script or property-setter filters.
 _CRM_DOCTYPES = ["Opportunity", "Quotation", "Lead", "Customer"]
+_CUSTOM_FIELD_DOCTYPES = _CRM_DOCTYPES + ["Sales Order"]
 fixtures = [
-    {"dt": "Custom Field", "filters": [["dt", "in", _CRM_DOCTYPES]]},
+    {"dt": "Custom Field", "filters": [["dt", "in", _CUSTOM_FIELD_DOCTYPES]]},
     {"dt": "Property Setter", "filters": [["doc_type", "in", _CRM_DOCTYPES]]},
     {"dt": "Client Script", "filters": [["dt", "in", _CRM_DOCTYPES]]},
     {"dt": "Server Script", "filters": [["reference_doctype", "in", _CRM_DOCTYPES]]},
 ]
 
-# On Quotation submit, start the contract Sales Order automation if the
-# Opportunity is ready (linked Quotation + Finance Dossier both submitted).
+# Quotation lifecycle:
+#  - after_insert: (1) give the Quotation its own 1:1 Discount (copied from the
+#    Opportunity template), linked via Discount.quotation; (2) create the
+#    Quotation's Draft Finance Dossier (1:1, finance_dossier_from="Quotation").
+#  - on_submit: (1) start the contract Sales Order automation if the Opportunity
+#    is ready (linked Quotation + Finance Dossier both submitted); (2) submit the
+#    Quotation's Discount (atomic -- rolls the submit back if it fails).
+#  - on_cancel: cancel the Quotation's Discount (atomic).
 doc_events = {
     "Quotation": {
-        "on_submit": "fuelbuddy_crm.sales_automation.on_quotation_submit",
+        "after_insert": [
+            "fuelbuddy_crm.discount_sync.ensure_quotation_discount",
+            "fuelbuddy_crm.finance_dossier.create_for_quotation",
+        ],
+        "on_submit": [
+            "fuelbuddy_crm.sales_automation.on_quotation_submit",
+            "fuelbuddy_crm.discount_sync.submit_quotation_discount",
+        ],
         "on_update_after_submit": "fuelbuddy_crm.sales_automation.on_quotation_submit",
+        "on_cancel": "fuelbuddy_crm.discount_sync.cancel_quotation_discount",
     },
 }
 
