@@ -249,15 +249,22 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 		for idx, row in enumerate(so.items, start=1):
 			row.idx = idx
 	else:
-		# Sales Order needs a Customer. For a Lead-based Quotation, auto-create the
-		# Customer (copying VAT / Trade Licence from the Finance Dossier).
+		# Sales Order needs a Customer. A Lead-based Quotation ALWAYS gets its own
+		# freshly-created Customer (we never reuse an existing one for the Lead).
+		new_customer = None
 		if qdoc.quotation_to == "Lead":
 			txn_ig = _transaction_item_group(opportunity, quotation)
-			ensure_customer_from_lead(qdoc.party_name, txn_ig, opportunity, quotation)
+			new_customer = ensure_customer_from_lead(qdoc.party_name, txn_ig, opportunity, quotation)
 
 		from erpnext.selling.doctype.quotation.quotation import make_sales_order
 
 		so = make_sales_order(quotation)
+
+		# Force the SO onto the Customer we just created, in case make_sales_order
+		# resolved an older Customer that shares this Lead.
+		if new_customer:
+			so.customer = new_customer
+			so.customer_name = frappe.db.get_value("Customer", new_customer, "customer_name")
 
 	so.custom_quotation = quotation
 	so.transaction_date = nowdate()
@@ -271,8 +278,6 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 	so.custom_percentage_value = qdoc.get("custom_percentage_value")
 	so.custom_per_litre_value = qdoc.get("custom_per_litre_value")
 	so.custom_max_discount_value = qdoc.get("custom_max_discount_value")
-	so.custom_threshold_days = qdoc.get("custom_threshold_days")
-	so.custom_discount_payment_terms = qdoc.get("custom_discount_payment_terms")
 	so.set("custom_slab_discount", [])
 	for s in (qdoc.get("custom_slab_discount") or []):
 		so.append(
@@ -299,6 +304,11 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 		so.custom_source_of_creation = "ERP"
 	if not so.get("custom_contract_type"):
 		so.custom_contract_type = "FLEET"
+	# Carry the agreed Payment Terms down the chain (Opportunity -> Quotation -> SO).
+	if not so.get("custom_payment_terms"):
+		so.custom_payment_terms = qdoc.get("custom_payment_terms") or frappe.db.get_value(
+			"Opportunity", opportunity, "custom_payment_terms"
+		)
 
 	for row in so.items:
 		row.delivery_date = month_end
@@ -391,15 +401,14 @@ def _transaction_item_group(opportunity, quotation):
 
 
 def ensure_customer_from_lead(lead_name, transaction_item_group=None, opportunity=None, quotation=None):
-	"""Create a Customer for a Lead (if none exists) so a Sales Order can be raised.
-	make_sales_order resolves the customer from a Quotation via Customer.lead_name.
-	Copies VAT / Trade Licence from the Lead (the Finance Dossier no longer carries
-	these -- documents now live on the Documents tab)."""
+	"""Create a NEW Customer for a Lead-based Quotation so a Sales Order can be raised.
+
+	A Quotation raised from a Lead ALWAYS gets its own freshly-created Customer --
+	we intentionally do not reuse an existing Customer for the Lead. Copies VAT /
+	Trade Licence from the Lead and the agreed Payment Terms down the chain
+	(Opportunity -> Quotation -> Customer)."""
 	if not lead_name or not frappe.db.exists("Lead", lead_name):
 		return None
-	existing = frappe.db.get_value("Customer", {"lead_name": lead_name}, "name")
-	if existing:
-		return existing
 	lead = frappe.get_doc("Lead", lead_name)
 	cust = frappe.new_doc("Customer")
 	cust.customer_name = lead.company_name or lead.lead_name or lead_name
@@ -419,6 +428,15 @@ def ensure_customer_from_lead(lead_name, transaction_item_group=None, opportunit
 		cust.custom_vat_certificate = lead.custom_vat_certificate
 	if lead.get("custom_trade_license"):
 		cust.custom_trade_license = lead.custom_trade_license
+
+	# Carry the agreed Payment Terms down the chain (Opportunity -> Quotation -> Customer).
+	payment_terms = None
+	if quotation:
+		payment_terms = frappe.db.get_value("Quotation", quotation, "custom_payment_terms")
+	if not payment_terms and opportunity:
+		payment_terms = frappe.db.get_value("Opportunity", opportunity, "custom_payment_terms")
+	if payment_terms:
+		cust.custom_payment_terms = payment_terms
 
 	cust.insert(ignore_permissions=True)
 	return cust.name

@@ -256,10 +256,12 @@ override_doctype_dashboards = {
 # the Quotation), so it is included in the Custom Field filter only -- not in the
 # client/server-script or property-setter filters.
 _CRM_DOCTYPES = ["Opportunity", "Quotation", "Lead", "Customer"]
+# Custom Fields and Property Setters are also owned on Sales Order (the contract SO
+# carries the CRM commercial fields and the form layout / naming-series for it).
 _CUSTOM_FIELD_DOCTYPES = _CRM_DOCTYPES + ["Sales Order"]
 fixtures = [
     {"dt": "Custom Field", "filters": [["dt", "in", _CUSTOM_FIELD_DOCTYPES]]},
-    {"dt": "Property Setter", "filters": [["doc_type", "in", _CRM_DOCTYPES]]},
+    {"dt": "Property Setter", "filters": [["doc_type", "in", _CUSTOM_FIELD_DOCTYPES]]},
     {"dt": "Client Script", "filters": [["dt", "in", _CRM_DOCTYPES]]},
     {"dt": "Server Script", "filters": [["reference_doctype", "in", _CRM_DOCTYPES]]},
 ]
@@ -274,6 +276,7 @@ fixtures = [
 #  - on_cancel: cancel the Quotation's Discount (atomic).
 doc_events = {
     "Quotation": {
+        "validate": "fuelbuddy_crm.quotation_link.enforce_one_per_opportunity",
         "after_insert": [
             "fuelbuddy_crm.discount_sync.ensure_quotation_discount",
             "fuelbuddy_crm.finance_dossier.create_for_quotation",
