@@ -97,36 +97,48 @@ def ready_contract_quotation(opportunity):
 
 def _evaluate_contract_readiness(opportunity):
 	"""Return (source_quotation_or_None, reason). `reason` is a short human string
-	explaining why it is not ready (used for logging) or "ready"."""
+	explaining why it is not ready (used for logging) or "ready".
+
+	The Finance Dossier is created from -- and linked 1:1 to -- the Quotation, so
+	the contract source is the latest submitted Quotation whose Finance Dossier is
+	also submitted."""
 	quotations = frappe.get_all(
 		"Quotation",
 		filters={"custom_opportunity_from": opportunity, "docstatus": ["!=", 2]},
 		fields=["name", "docstatus"],
 	)
-	dossiers = frappe.get_all(
-		"Finance Dossier",
-		filters={"finance_dossier_from": "Opportunity", "id": opportunity, "docstatus": ["!=", 2]},
-		fields=["name", "docstatus"],
-	)
-
 	if not quotations:
 		return None, "no Quotation is linked to this Opportunity (custom_opportunity_from)"
-	if not dossiers:
-		return None, "no Finance Dossier is linked to this Opportunity (finance_dossier_from/id)"
 	if any(q.docstatus != 1 for q in quotations):
 		return None, "a linked Quotation is still in Draft"
-	if any(d.docstatus != 1 for d in dossiers):
-		return None, "a linked Finance Dossier is still in Draft"
 
-	# The latest submitted Quotation is the single contract source for the SOs.
-	source = frappe.get_all(
+	# all quotations are submitted here; newest first
+	submitted = frappe.get_all(
 		"Quotation",
-		filters={"name": ["in", [q.name for q in quotations]]},
+		filters={"name": ["in", [q.name for q in quotations]], "docstatus": 1},
 		order_by="creation desc",
-		limit=1,
 		pluck="name",
-	)[0]
-	return source, "ready"
+	)
+	dossier_status = {
+		d.id: d.docstatus
+		for d in frappe.get_all(
+			"Finance Dossier",
+			filters={
+				"finance_dossier_from": "Quotation",
+				"id": ["in", submitted],
+				"docstatus": ["!=", 2],
+			},
+			fields=["id", "docstatus"],
+		)
+	}
+	if not dossier_status:
+		return None, "no Finance Dossier is linked to the Quotation (finance_dossier_from=Quotation/id)"
+
+	# the source is the newest submitted Quotation whose Finance Dossier is submitted
+	for q in submitted:
+		if dossier_status.get(q) == 1:
+			return q, "ready"
+	return None, "a linked Finance Dossier is still in Draft"
 
 
 @frappe.whitelist()
@@ -237,19 +249,47 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 		for idx, row in enumerate(so.items, start=1):
 			row.idx = idx
 	else:
-		# Sales Order needs a Customer. For a Lead-based Quotation, auto-create the
-		# Customer (copying VAT / Trade Licence from the Finance Dossier).
+		# Sales Order needs a Customer. A Lead-based Quotation ALWAYS gets its own
+		# freshly-created Customer (we never reuse an existing one for the Lead).
+		new_customer = None
 		if qdoc.quotation_to == "Lead":
 			txn_ig = _transaction_item_group(opportunity, quotation)
-			ensure_customer_from_lead(qdoc.party_name, txn_ig, opportunity)
+			new_customer = ensure_customer_from_lead(qdoc.party_name, txn_ig, opportunity, quotation)
 
 		from erpnext.selling.doctype.quotation.quotation import make_sales_order
 
 		so = make_sales_order(quotation)
 
+		# Force the SO onto the Customer we just created, in case make_sales_order
+		# resolved an older Customer that shares this Lead.
+		if new_customer:
+			so.customer = new_customer
+			so.customer_name = frappe.db.get_value("Customer", new_customer, "customer_name")
+
 	so.custom_quotation = quotation
 	so.transaction_date = nowdate()
 	so.delivery_date = month_end
+
+	# Mirror the Quotation's Discount tab onto the (read-only) Sales Order Discount
+	# tab. The slab table is reset first so a cloned SO doesn't accumulate rows.
+	so.custom_discount_method = qdoc.get("custom_discount_method")
+	so.custom_discount_upto_date = qdoc.get("custom_discount_upto_date")
+	so.custom_percentageper_litre = qdoc.get("custom_percentageper_litre")
+	so.custom_percentage_value = qdoc.get("custom_percentage_value")
+	so.custom_per_litre_value = qdoc.get("custom_per_litre_value")
+	so.custom_max_discount_value = qdoc.get("custom_max_discount_value")
+	so.set("custom_slab_discount", [])
+	for s in (qdoc.get("custom_slab_discount") or []):
+		so.append(
+			"custom_slab_discount",
+			{
+				"p_or_v": s.p_or_v,
+				"qty_limit": s.qty_limit,
+				"discount_value": s.discount_value,
+				"threshold_value": s.threshold_value,
+				"limit": s.limit,
+			},
+		)
 
 	# fill custom mandatory fields the standard mapper does not set
 	so.custom_deal_type = qdoc.custom_deal_type or frappe.db.get_value(
@@ -264,6 +304,11 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 		so.custom_source_of_creation = "ERP"
 	if not so.get("custom_contract_type"):
 		so.custom_contract_type = "FLEET"
+	# Carry the agreed Payment Terms down the chain (Opportunity -> Quotation -> SO).
+	if not so.get("custom_payment_terms"):
+		so.custom_payment_terms = qdoc.get("custom_payment_terms") or frappe.db.get_value(
+			"Opportunity", opportunity, "custom_payment_terms"
+		)
 
 	for row in so.items:
 		row.delivery_date = month_end
@@ -355,15 +400,15 @@ def _transaction_item_group(opportunity, quotation):
 	return txn_ig
 
 
-def ensure_customer_from_lead(lead_name, transaction_item_group=None, opportunity=None):
-	"""Create a Customer for a Lead (if none exists) so a Sales Order can be raised.
-	make_sales_order resolves the customer from a Quotation via Customer.lead_name.
-	Copies VAT / Trade Licence from the Opportunity's Finance Dossier when available."""
+def ensure_customer_from_lead(lead_name, transaction_item_group=None, opportunity=None, quotation=None):
+	"""Create a NEW Customer for a Lead-based Quotation so a Sales Order can be raised.
+
+	A Quotation raised from a Lead ALWAYS gets its own freshly-created Customer --
+	we intentionally do not reuse an existing Customer for the Lead. Copies VAT /
+	Trade Licence from the Lead and the agreed Payment Terms down the chain
+	(Opportunity -> Quotation -> Customer)."""
 	if not lead_name or not frappe.db.exists("Lead", lead_name):
 		return None
-	existing = frappe.db.get_value("Customer", {"lead_name": lead_name}, "name")
-	if existing:
-		return existing
 	lead = frappe.get_doc("Lead", lead_name)
 	cust = frappe.new_doc("Customer")
 	cust.customer_name = lead.company_name or lead.lead_name or lead_name
@@ -378,28 +423,20 @@ def ensure_customer_from_lead(lead_name, transaction_item_group=None, opportunit
 	if transaction_item_group:
 		cust.custom_transaction_type = transaction_item_group
 
-	# Task 1: carry VAT / Trade Licence from the (submitted) Finance Dossier.
-	_apply_finance_dossier_details(cust, opportunity)
+	# Carry VAT / Trade Licence from the Lead onto the Customer.
+	if lead.get("custom_vat_certificate"):
+		cust.custom_vat_certificate = lead.custom_vat_certificate
+	if lead.get("custom_trade_license"):
+		cust.custom_trade_license = lead.custom_trade_license
+
+	# Carry the agreed Payment Terms down the chain (Opportunity -> Quotation -> Customer).
+	payment_terms = None
+	if quotation:
+		payment_terms = frappe.db.get_value("Quotation", quotation, "custom_payment_terms")
+	if not payment_terms and opportunity:
+		payment_terms = frappe.db.get_value("Opportunity", opportunity, "custom_payment_terms")
+	if payment_terms:
+		cust.custom_payment_terms = payment_terms
 
 	cust.insert(ignore_permissions=True)
 	return cust.name
-
-
-def _apply_finance_dossier_details(cust, opportunity):
-	"""Copy VAT Number -> custom_vat_certificate and Trade Licence Number ->
-	custom_trade_license from the Opportunity's Finance Dossier onto the Customer."""
-	if not opportunity:
-		return
-	fd = frappe.get_all(
-		"Finance Dossier",
-		filters={"finance_dossier_from": "Opportunity", "id": opportunity, "docstatus": 1},
-		fields=["vat_number", "trade_licence_number"],
-		order_by="modified desc",
-		limit=1,
-	)
-	if not fd:
-		return
-	if fd[0].vat_number:
-		cust.custom_vat_certificate = fd[0].vat_number
-	if fd[0].trade_licence_number:
-		cust.custom_trade_license = fd[0].trade_licence_number
