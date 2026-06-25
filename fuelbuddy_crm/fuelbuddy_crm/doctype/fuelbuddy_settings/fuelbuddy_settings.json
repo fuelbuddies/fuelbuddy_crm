@@ -1,0 +1,77 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-06-25 12:00:00.000000",
+ "description": "Shared settings for all FuelBuddy apps (CRM, Finance Dossier, Credit Limit, Business Documents, Wallet). One section per app; add new settings under the relevant app's section.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "crm_section",
+  "submit_sales_order",
+  "finance_dossier_section",
+  "credit_limit_section",
+  "business_documents_section",
+  "wallet_section"
+ ],
+ "fields": [
+  {
+   "fieldname": "crm_section",
+   "fieldtype": "Section Break",
+   "label": "CRM / Sales Automation"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, contract Sales Orders created from a Quotation (on Quotation submit and by the monthly scheduler) are submitted automatically. When disabled, they are left in Draft for manual review/approval.",
+   "fieldname": "submit_sales_order",
+   "fieldtype": "Check",
+   "label": "Submit Sales Order on Creation"
+  },
+  {
+   "fieldname": "finance_dossier_section",
+   "fieldtype": "Section Break",
+   "label": "Finance Dossier"
+  },
+  {
+   "fieldname": "credit_limit_section",
+   "fieldtype": "Section Break",
+   "label": "Credit Limit"
+  },
+  {
+   "fieldname": "business_documents_section",
+   "fieldtype": "Section Break",
+   "label": "Business Documents"
+  },
+  {
+   "fieldname": "wallet_section",
+   "fieldtype": "Section Break",
+   "label": "Wallet"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-06-25 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Fuelbuddy CRM",
+ "name": "Fuelbuddy Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
