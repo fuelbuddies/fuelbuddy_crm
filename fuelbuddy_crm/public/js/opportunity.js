@@ -58,3 +58,23 @@ frappe.ui.form.on("Opportunity", {
 		}, 10);
 	},
 });
+
+// BUG-007: don't let an Opportunity be saved with a Contract Expiry / Valid Till that
+// is before its transaction date. This is the immediate client-side guard; the
+// authoritative check lives in fuelbuddy_crm.validations.validate_opportunity_valid_till.
+frappe.ui.form.on("Opportunity", {
+	validate: function (frm) {
+		if (
+			frm.doc.custom_contract_expiry &&
+			frm.doc.transaction_date &&
+			frappe.datetime.get_diff(frm.doc.custom_contract_expiry, frm.doc.transaction_date) < 0
+		) {
+			frappe.validated = false;
+			frappe.msgprint({
+				title: __("Invalid Valid Till date"),
+				message: __("Valid till date cannot be before transaction date"),
+				indicator: "red",
+			});
+		}
+	},
+});

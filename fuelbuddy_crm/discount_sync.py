@@ -278,3 +278,48 @@ def _propagate_to_dossier(opp, quotation):
 	_copy_slab(opp.get("custom_slab_discount"), fd, "slab_discount")
 	fd.flags.ignore_permissions = True
 	fd.save()
+
+
+# --- Quotation discount -> its 1:1 Discount and Finance Dossier ---------------------
+#
+# Edits made directly on a (still-Draft) Quotation -- discount values, the slab table or
+# its line items -- must also reach its Finance Dossier, otherwise the dossier shows
+# stale figures (BUG-008). The Opportunity is still the source of truth and propagates
+# down on its own save; this covers the case where the Quotation itself is edited.
+
+
+def propagate_quotation_discount(doc, method=None):
+	"""Quotation ``on_update`` -> push the Quotation's discount tab, slab table and line
+	-item volume down to its still-Draft Discount and Finance Dossier (BUG-008).
+
+	The Quotation carries the same ``custom_*`` discount field names as the Opportunity,
+	so the existing Opportunity->Discount map is reused with the Quotation as the source.
+	Skipped during the Quotation's own insert (the Discount/Finance Dossier are created
+	fresh with these values in ``after_insert``). Best-effort: a failure is logged rather
+	than rolling back the Quotation save."""
+	if getattr(doc.flags, "in_insert", False):
+		return
+	try:
+		# 1:1 Discount (Draft only).
+		_propagate_to_discount(doc, doc.name)
+
+		# Finance Dossier (Draft only) -- discount fields + slab + line-item volume.
+		from fuelbuddy_crm.finance_dossier import get_quotation_dossier
+
+		name = get_quotation_dossier(doc.name)
+		if not name:
+			return
+		fd = frappe.get_doc("Finance Dossier", name)
+		if fd.docstatus != 0:
+			return
+		for target, source in _OPP_TO_FD.items():
+			fd.set(target, doc.get(source))
+		_copy_slab(doc.get("custom_slab_discount"), fd, "slab_discount")
+		fd.expected_monthly_volume = doc.get("total_qty")
+		fd.flags.ignore_permissions = True
+		fd.save()
+	except Exception:
+		frappe.log_error(
+			title=f"Quotation discount sync failed: {doc.name}"[:140],
+			message=frappe.get_traceback(),
+		)
