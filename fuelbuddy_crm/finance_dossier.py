@@ -71,6 +71,9 @@ def create_for_quotation(doc, method=None):
 		fd.deal_type = doc.get("custom_deal_type")
 		fd.pricing_model = doc.get("custom_pricing_model")
 		fd.payment_term = doc.get("custom_payment_terms")
+		# "Payment Terms" on the Commercials tab (the `credit_days` field) also carries
+		# the agreed Payment Term down from the Opportunity (via the Quotation).
+		fd.credit_days = doc.get("custom_payment_terms")
 		fd.contract_expiry = doc.get("custom_contract_expiry")
 		fd.invoicing_frequency = doc.get("custom_invoicing_frequency")
 		fd.invoicing_type = doc.get("custom_invoicing_type")

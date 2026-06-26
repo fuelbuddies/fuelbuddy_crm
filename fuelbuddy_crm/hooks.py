@@ -43,7 +43,10 @@ app_license = "mit"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+# Opportunity form: replace the stock "Create" buttons with FuelBuddy's Quotation +
+# Planning actions (the Quotation button creates a Draft Quotation from the Opportunity
+# via fuelbuddy_crm.quotation_link.create_quotation_from_opportunity).
+doctype_js = {"Opportunity": "public/js/opportunity.js"}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -274,7 +277,17 @@ fixtures = [
 #    is ready (linked Quotation + Finance Dossier both submitted); (2) submit the
 #    Quotation's Discount (atomic -- rolls the submit back if it fails).
 #  - on_cancel: cancel the Quotation's Discount (atomic).
+#
+# Opportunity lifecycle (discount tab is the source of truth):
+#  - validate: block a discount change once the Quotation / Finance Dossier is
+#    submitted (the discount is then part of a signed contract).
+#  - on_update: propagate a discount change down to the still-Draft Quotation, its
+#    1:1 Discount and its Finance Dossier.
 doc_events = {
+    "Opportunity": {
+        "validate": "fuelbuddy_crm.discount_sync.guard_opportunity_discount",
+        "on_update": "fuelbuddy_crm.discount_sync.propagate_opportunity_discount",
+    },
     "Quotation": {
         "validate": "fuelbuddy_crm.quotation_link.enforce_one_per_opportunity",
         "after_insert": [
