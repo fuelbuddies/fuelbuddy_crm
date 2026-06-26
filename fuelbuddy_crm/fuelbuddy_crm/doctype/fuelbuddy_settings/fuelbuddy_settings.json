@@ -10,8 +10,10 @@
   "submit_sales_order",
   "finance_dossier_section",
   "credit_limit_section",
+  "enable_credit_limit",
   "business_documents_section",
-  "wallet_section"
+  "wallet_section",
+  "enable_wallet"
  ],
  "fields": [
   {
@@ -37,6 +39,13 @@
    "label": "Credit Limit"
   },
   {
+   "default": "0",
+   "description": "When enabled, a Credit Limit record is created for each non-cash-advance customer (on onboarding and from the Finance Dossier), and Delivery Notes are blocked when the customer is overdue or over their limit. When disabled, no records are created and Delivery Notes are not blocked on credit.",
+   "fieldname": "enable_credit_limit",
+   "fieldtype": "Check",
+   "label": "Enable Credit Limit"
+  },
+  {
    "fieldname": "business_documents_section",
    "fieldtype": "Section Break",
    "label": "Business Documents"
@@ -45,6 +54,13 @@
    "fieldname": "wallet_section",
    "fieldtype": "Section Break",
    "label": "Wallet"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, a Wallet is created for each new Cash-advance customer and Delivery Notes are blocked when they would push the customer's wallet balance below zero. When disabled, no wallets are created and Delivery Notes are not blocked on wallet balance.",
+   "fieldname": "enable_wallet",
+   "fieldtype": "Check",
+   "label": "Enable Wallet"
   }
  ],
  "grid_page_length": 50,
