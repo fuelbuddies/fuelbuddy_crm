@@ -1230,5 +1230,37 @@
   "property_type": "Check",
   "row_name": null,
   "value": "0"
+ },
+ {
+  "default_value": null,
+  "doc_type": "Opportunity Item",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocField",
+  "field_name": "rate",
+  "is_system_generated": 0,
+  "modified": "2026-06-26 12:00:00.000000",
+  "module": null,
+  "name": "Opportunity Item-rate-read_only",
+  "property": "read_only",
+  "property_type": "Check",
+  "row_name": null,
+  "value": "1"
+ },
+ {
+  "default_value": null,
+  "doc_type": "Opportunity Item",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocField",
+  "field_name": "qty",
+  "is_system_generated": 0,
+  "modified": "2026-06-26 12:00:00.000000",
+  "module": null,
+  "name": "Opportunity Item-qty-read_only",
+  "property": "read_only",
+  "property_type": "Check",
+  "row_name": null,
+  "value": "1"
  }
 ]

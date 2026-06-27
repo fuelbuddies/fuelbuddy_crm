@@ -19,6 +19,18 @@ CONTRACT_QTY_GROWTH = 0.25
 # (List > Error Log, filter title "like Contract SO%").
 SO_LOG_PREFIX = "Contract SO"
 
+# Shared "Fuelbuddy Settings" single doctype (hosted in this app, read by all
+# FuelBuddy apps): the "submit_sales_order" flag decides whether a freshly created
+# contract Sales Order is submitted or left in Draft.
+FB_SETTINGS_DOCTYPE = "Fuelbuddy Settings"
+
+
+def _should_submit_sales_order():
+	"""Whether a freshly created contract Sales Order should be submitted (vs left in
+	Draft). Controlled by the "Submit Sales Order on Creation" flag on the single
+	"Fuelbuddy Settings"; defaults to leaving the SO in Draft when unset."""
+	return bool(frappe.db.get_single_value(FB_SETTINGS_DOCTYPE, "submit_sales_order"))
+
 
 def _log_so(title, opportunity=None, quotation=None, detail=None, traceback=False):
 	"""Record an SO-automation outcome in the Error Log. Used for failures, RQ
@@ -313,17 +325,22 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 	for row in so.items:
 		row.delivery_date = month_end
 
-	# Submit the SO. If Sales Order is under an active workflow, create it in the
-	# initial "Pending" state and drive it to submitted via the "Approve"
-	# transition. Otherwise (no workflow configured -- SOs are submitted directly
-	# on this site, same as the manual "Create Sales Order" flow) just submit.
+	# Create the SO, then submit it only if the "Submit Sales Order on Creation" flag
+	# (single "Fuelbuddy Settings") is enabled -- otherwise leave it in Draft for
+	# manual review/approval. If Sales Order is under an active workflow it always
+	# starts in the initial "Pending" state; when submission is enabled it is driven
+	# to submitted via the "Approve" transition. Without a workflow the SO is
+	# submitted directly (same as the manual "Create Sales Order" flow).
+	submit_so = _should_submit_sales_order()
 	if get_workflow_name("Sales Order"):
 		so.workflow_state = "Pending"
 		so.insert(ignore_permissions=True)
-		apply_workflow(so, SO_APPROVE_ACTION)
+		if submit_so:
+			apply_workflow(so, SO_APPROVE_ACTION)
 	else:
 		so.insert(ignore_permissions=True)
-		so.submit()
+		if submit_so:
+			so.submit()
 
 	if set_stage and opportunity:
 		frappe.db.set_value("Opportunity", opportunity, "sales_stage", "Sales Order Created")

@@ -43,7 +43,13 @@ app_license = "mit"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+# Opportunity form: replace the stock "Create" buttons with FuelBuddy's Quotation +
+# Planning actions (the Quotation button creates a Draft Quotation from the Opportunity
+# via fuelbuddy_crm.quotation_link.create_quotation_from_opportunity).
+doctype_js = {
+    "Opportunity": "public/js/opportunity.js",
+    "Quotation": "public/js/quotation.js",
+}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -259,9 +265,12 @@ _CRM_DOCTYPES = ["Opportunity", "Quotation", "Lead", "Customer"]
 # Custom Fields and Property Setters are also owned on Sales Order (the contract SO
 # carries the CRM commercial fields and the form layout / naming-series for it).
 _CUSTOM_FIELD_DOCTYPES = _CRM_DOCTYPES + ["Sales Order"]
+# Property Setters also cover "Opportunity Item": its rate/qty are derived from the
+# Opportunity Value section and are made read-only there (BUG-010).
+_PROPERTY_SETTER_DOCTYPES = _CUSTOM_FIELD_DOCTYPES + ["Opportunity Item"]
 fixtures = [
     {"dt": "Custom Field", "filters": [["dt", "in", _CUSTOM_FIELD_DOCTYPES]]},
-    {"dt": "Property Setter", "filters": [["doc_type", "in", _CUSTOM_FIELD_DOCTYPES]]},
+    {"dt": "Property Setter", "filters": [["doc_type", "in", _PROPERTY_SETTER_DOCTYPES]]},
     {"dt": "Client Script", "filters": [["dt", "in", _CRM_DOCTYPES]]},
     {"dt": "Server Script", "filters": [["reference_doctype", "in", _CRM_DOCTYPES]]},
 ]
@@ -274,19 +283,50 @@ fixtures = [
 #    is ready (linked Quotation + Finance Dossier both submitted); (2) submit the
 #    Quotation's Discount (atomic -- rolls the submit back if it fails).
 #  - on_cancel: cancel the Quotation's Discount (atomic).
+#
+# Opportunity lifecycle (discount tab is the source of truth):
+#  - validate: block a discount change once the Quotation / Finance Dossier is
+#    submitted (the discount is then part of a signed contract).
+#  - on_update: propagate a discount change down to the still-Draft Quotation, its
+#    1:1 Discount and its Finance Dossier.
 doc_events = {
+    "Opportunity": {
+        "validate": [
+            # Reject bad inputs first so the user gets the precise message: negative
+            # discounts (BUG-004) and an expired Valid Till (BUG-007).
+            "fuelbuddy_crm.validations.validate_discount_values",
+            "fuelbuddy_crm.validations.validate_opportunity_valid_till",
+            "fuelbuddy_crm.discount_sync.guard_opportunity_discount",
+        ],
+        "on_update": "fuelbuddy_crm.discount_sync.propagate_opportunity_discount",
+    },
     "Quotation": {
-        "validate": "fuelbuddy_crm.quotation_link.enforce_one_per_opportunity",
+        # before_validate: default grand_total/base_grand_total so an item-less Quotation
+        # can't crash ERPNext's set_payment_schedule() (BUG-001).
+        "before_validate": "fuelbuddy_crm.quotation_link.guard_totals",
+        "validate": [
+            "fuelbuddy_crm.quotation_link.enforce_one_per_opportunity",
+            # Reject negative discount inputs on the Quotation Discount tab (BUG-004).
+            "fuelbuddy_crm.validations.validate_discount_values",
+        ],
         "after_insert": [
             "fuelbuddy_crm.discount_sync.ensure_quotation_discount",
             "fuelbuddy_crm.finance_dossier.create_for_quotation",
         ],
+        # Keep the Finance Dossier / Discount in sync with edits made directly on the
+        # (still-Draft) Quotation (BUG-008).
+        "on_update": "fuelbuddy_crm.discount_sync.propagate_quotation_discount",
         "on_submit": [
             "fuelbuddy_crm.sales_automation.on_quotation_submit",
             "fuelbuddy_crm.discount_sync.submit_quotation_discount",
         ],
         "on_update_after_submit": "fuelbuddy_crm.sales_automation.on_quotation_submit",
         "on_cancel": "fuelbuddy_crm.discount_sync.cancel_quotation_discount",
+    },
+    "Sales Order": {
+        # Block manually creating a Sales Order outside the approval chain (BUG-012).
+        # Automation / integrations (ignore_permissions) and Quotation-sourced SOs pass.
+        "before_insert": "fuelbuddy_crm.validations.block_manual_sales_order",
     },
 }
 
