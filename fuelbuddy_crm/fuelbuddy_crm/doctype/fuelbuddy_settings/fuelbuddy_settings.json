@@ -7,7 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "crm_section",
-  "submit_sales_order",
+  "enable_manual_order_creation",
   "finance_dossier_section",
   "credit_limit_section",
   "enable_credit_limit",
@@ -23,10 +23,10 @@
   },
   {
    "default": "0",
-   "description": "When enabled, contract Sales Orders created from a Quotation (on Quotation submit and by the monthly scheduler) are submitted automatically. When disabled, they are left in Draft for manual review/approval.",
-   "fieldname": "submit_sales_order",
+   "description": "When enabled, a Sales Order may be created directly/manually (e.g. from Selling > Sales Order) without going through the Opportunity -> Quotation -> Finance Dossier chain. Automatic creation on Quotation submit (and the monthly scheduler) keeps working regardless. When disabled, every Sales Order must originate from an approved Quotation (BUG-012 guard).",
+   "fieldname": "enable_manual_order_creation",
    "fieldtype": "Check",
-   "label": "Submit Sales Order on Creation"
+   "label": "Enable Manual Sales Order Creation"
   },
   {
    "fieldname": "finance_dossier_section",

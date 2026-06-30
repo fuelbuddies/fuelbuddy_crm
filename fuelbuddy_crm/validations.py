@@ -67,6 +67,13 @@ def block_manual_sales_order(doc, method=None):
 	if getattr(doc.flags, "ignore_permissions", False):
 		return  # contract automation / integrations (already FD-gated upstream)
 
+	# Escape hatch: when "Enable Manual Sales Order Creation" is on in Fuelbuddy
+	# Settings, direct/manual SO creation is explicitly permitted -- skip the
+	# require-approved-Quotation chain entirely. Automatic creation (Quotation submit
+	# + monthly scheduler) is unaffected either way. Default off restores BUG-012.
+	if frappe.db.get_single_value("Fuelbuddy Settings", "enable_manual_order_creation"):
+		return
+
 	quotation = doc.get("custom_quotation")
 	if not quotation:
 		for row in doc.get("items") or []:
