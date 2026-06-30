@@ -2,12 +2,10 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe.model.workflow import apply_workflow, get_workflow_name
 from frappe.utils import add_months, flt, get_first_day, get_last_day, getdate, nowdate
 
-# Sales Order workflow: "Approved" is the only docstatus=1 state, reached via the
-# "Approve" transition. Contract SOs are created in "Pending" then approved+submitted.
-SO_APPROVE_ACTION = "Approve"
+from fuelbuddy_crm.quotation_link import _payment_terms_template_for
+
 CONTRACT_SO_QUEUE = "long"
 
 # Each subsequent month's order quantity grows from the previous month's actual
@@ -18,18 +16,6 @@ CONTRACT_QTY_GROWTH = 0.25
 # under a title starting with this prefix, so they can all be filtered in one place
 # (List > Error Log, filter title "like Contract SO%").
 SO_LOG_PREFIX = "Contract SO"
-
-# Shared "Fuelbuddy Settings" single doctype (hosted in this app, read by all
-# FuelBuddy apps): the "submit_sales_order" flag decides whether a freshly created
-# contract Sales Order is submitted or left in Draft.
-FB_SETTINGS_DOCTYPE = "Fuelbuddy Settings"
-
-
-def _should_submit_sales_order():
-	"""Whether a freshly created contract Sales Order should be submitted (vs left in
-	Draft). Controlled by the "Submit Sales Order on Creation" flag on the single
-	"Fuelbuddy Settings"; defaults to leaving the SO in Draft when unset."""
-	return bool(frappe.db.get_single_value(FB_SETTINGS_DOCTYPE, "submit_sales_order"))
 
 
 def _log_so(title, opportunity=None, quotation=None, detail=None, traceback=False):
@@ -325,22 +311,27 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 	for row in so.items:
 		row.delivery_date = month_end
 
-	# Create the SO, then submit it only if the "Submit Sales Order on Creation" flag
-	# (single "Fuelbuddy Settings") is enabled -- otherwise leave it in Draft for
-	# manual review/approval. If Sales Order is under an active workflow it always
-	# starts in the initial "Pending" state; when submission is enabled it is driven
-	# to submitted via the "Approve" transition. Without a workflow the SO is
-	# submitted directly (same as the manual "Create Sales Order" flow).
-	submit_so = _should_submit_sales_order()
-	if get_workflow_name("Sales Order"):
-		so.workflow_state = "Pending"
-		so.insert(ignore_permissions=True)
-		if submit_so:
-			apply_workflow(so, SO_APPROVE_ACTION)
-	else:
-		so.insert(ignore_permissions=True)
-		if submit_so:
-			so.submit()
+	# Drive the SO's due date from the agreed payment term, down the chain
+	# Opportunity (custom_payment_terms) -> Quotation (payment_terms_template) -> SO:
+	# prefer the Quotation's Payment Terms Template, else wrap the single Payment Term
+	# carried down (custom_payment_terms) into one via _payment_terms_template_for.
+	if not so.get("payment_terms_template"):
+		so.payment_terms_template = qdoc.get(
+			"payment_terms_template"
+		) or _payment_terms_template_for(so.get("custom_payment_terms"))
+
+	# The standard mapper copies the Quotation's payment schedule verbatim, with due
+	# dates anchored to the Quotation's (earlier) date -- which can fall before this
+	# month's SO posting date and trip ERPNext's "Due Date cannot be before Posting
+	# Date" check. Clear it so set_payment_schedule() recomputes the rows from the
+	# template above, anchored to the SO's own posting date.
+	so.set("payment_schedule", [])
+
+	# Create the SO and submit it. Sales Order has no workflow, so a freshly created
+	# contract Sales Order is inserted and submitted directly (same as the manual
+	# "Create Sales Order" flow).
+	so.insert(ignore_permissions=True)
+	so.submit()
 
 	if set_stage and opportunity:
 		frappe.db.set_value("Opportunity", opportunity, "sales_stage", "Sales Order Created")
