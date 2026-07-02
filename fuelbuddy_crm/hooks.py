@@ -275,46 +275,29 @@ fixtures = [
     {"dt": "Server Script", "filters": [["reference_doctype", "in", _CRM_DOCTYPES]]},
 ]
 
-# Quotation lifecycle:
-#  - after_insert: (1) give the Quotation its own 1:1 Discount (copied from the
-#    Opportunity template), linked via Discount.quotation; (2) create the
-#    Quotation's Draft Finance Dossier (1:1, finance_dossier_from="Quotation").
-#  - on_submit: (1) start the contract Sales Order automation if the Opportunity
-#    is ready (linked Quotation + Finance Dossier both submitted); (2) submit the
-#    Quotation's Discount (atomic -- rolls the submit back if it fails).
-#  - on_cancel: cancel the Quotation's Discount (atomic).
-#
-# Opportunity lifecycle (discount tab is the source of truth):
-#  - validate: block a discount change once the Quotation / Finance Dossier is
-#    submitted (the discount is then part of a signed contract).
-#  - on_update: propagate a discount change down to the still-Draft Quotation, its
-#    1:1 Discount and its Finance Dossier.
 doc_events = {
     "Opportunity": {
         "validate": [
-            # Reject bad inputs first so the user gets the precise message: negative
-            # discounts (BUG-004) and an expired Valid Till (BUG-007).
             "fuelbuddy_crm.validations.validate_discount_values",
             "fuelbuddy_crm.validations.validate_opportunity_valid_till",
             "fuelbuddy_crm.discount_sync.guard_opportunity_discount",
         ],
+        "before_save": "fuelbuddy_crm.discount_sync.writeback_opportunity_discount",
         "on_update": "fuelbuddy_crm.discount_sync.propagate_opportunity_discount",
     },
+    "Discount": {
+        "validate": "fuelbuddy_crm.validations.validate_discount",
+    },
     "Quotation": {
-        # before_validate: default grand_total/base_grand_total so an item-less Quotation
-        # can't crash ERPNext's set_payment_schedule() (BUG-001).
         "before_validate": "fuelbuddy_crm.quotation_link.guard_totals",
         "validate": [
             "fuelbuddy_crm.quotation_link.enforce_one_per_opportunity",
-            # Reject negative discount inputs on the Quotation Discount tab (BUG-004).
             "fuelbuddy_crm.validations.validate_discount_values",
         ],
         "after_insert": [
             "fuelbuddy_crm.discount_sync.ensure_quotation_discount",
             "fuelbuddy_crm.finance_dossier.create_for_quotation",
         ],
-        # Keep the Finance Dossier / Discount in sync with edits made directly on the
-        # (still-Draft) Quotation (BUG-008).
         "on_update": "fuelbuddy_crm.discount_sync.propagate_quotation_discount",
         "on_submit": [
             "fuelbuddy_crm.sales_automation.on_quotation_submit",
@@ -324,14 +307,10 @@ doc_events = {
         "on_cancel": "fuelbuddy_crm.discount_sync.cancel_quotation_discount",
     },
     "Sales Order": {
-        # Block manually creating a Sales Order outside the approval chain (BUG-012).
-        # Automation / integrations (ignore_permissions) and Quotation-sourced SOs pass.
         "before_insert": "fuelbuddy_crm.validations.block_manual_sales_order",
     },
 }
 
-# Monthly: create each active contract's Sales Order for the current month
-# (delivery date = last day of the month) until the contract expires.
 scheduler_events = {
     "monthly": [
         "fuelbuddy_crm.sales_automation.generate_monthly_contract_sales_orders",

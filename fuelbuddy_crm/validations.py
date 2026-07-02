@@ -47,6 +47,44 @@ def validate_discount_values(doc, method=None):
 				)
 
 
+def validate_discount(doc, method=None):
+	"""Validate a Discount by its type.
+
+	Replaces the DB "Discount User Validation" Server Script, which required a slab
+	*unconditionally* -- so a **Non-Slab Discount** was wrongly forced to carry at least
+	one slab ("At least one discount slab must be configured."). The slab rules only make
+	sense for a Slab Discount:
+
+	  - Slab Discount:     at least one slab; every row but the last has limit "Upper" and
+	                       the last has "Lower"; a single p_or_v across all rows.
+	  - Non-Slab Discount: no slab requirement (the per-litre / percentage value applies).
+	"""
+	if doc.get("discount_type") != "Slab Discount":
+		return
+
+	slabs = doc.get("slab_discount") or []
+	if not slabs:
+		frappe.throw(_("At least one discount slab must be configured."))
+
+	last = len(slabs) - 1
+	for i, slab in enumerate(slabs):
+		if i < last and slab.get("limit") != "Upper":
+			frappe.throw(
+				_("Incorrect slab configuration: Slab {0} should have limit 'Upper'.").format(i + 1)
+			)
+		if i == last and slab.get("limit") != "Lower":
+			frappe.throw(
+				_(
+					"Incorrect slab configuration: Last slab (Slab {0}) should have limit 'Lower'."
+				).format(i + 1)
+			)
+
+	if len({slab.get("p_or_v") for slab in slabs}) > 1:
+		frappe.throw(
+			_("All slabs must have the same value. Either 'Per Litre' or 'Percentage', but not both.")
+		)
+
+
 def block_manual_sales_order(doc, method=None):
 	"""Restrict Sales Order creation to the approved CRM chain (BUG-012).
 

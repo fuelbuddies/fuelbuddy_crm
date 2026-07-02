@@ -7,11 +7,13 @@
  "engine": "InnoDB",
  "field_order": [
   "crm_section",
+  "submit_sales_order",
   "enable_manual_order_creation",
   "finance_dossier_section",
   "credit_limit_section",
   "enable_credit_limit",
   "business_documents_section",
+  "document_required",
   "wallet_section",
   "enable_wallet"
  ],
@@ -20,6 +22,13 @@
    "fieldname": "crm_section",
    "fieldtype": "Section Break",
    "label": "CRM / Sales Automation"
+  },
+  {
+   "default": "1",
+   "description": "When enabled, contract Sales Orders created from a Quotation (on Quotation submit and by the monthly scheduler) are submitted automatically on creation. When disabled, they are left in Draft for manual review/approval. Independent of \"Enable Manual Sales Order Creation\".",
+   "fieldname": "submit_sales_order",
+   "fieldtype": "Check",
+   "label": "Submit Sales Order on Creation"
   },
   {
    "default": "0",
@@ -49,6 +58,13 @@
    "fieldname": "business_documents_section",
    "fieldtype": "Section Break",
    "label": "Business Documents"
+  },
+  {
+   "default": "1",
+   "description": "When enabled, Business Documents are enforced across the deal flow: the Finance Dossier cannot be submitted until at least one document is uploaded on the deal chain (Opportunity / Quotation / Customer / Lead / Finance Dossier) and every uploaded document is approved. When disabled, all document validations are bypassed and the flow proceeds without any document uploads.",
+   "fieldname": "document_required",
+   "fieldtype": "Check",
+   "label": "Document Required"
   },
   {
    "fieldname": "wallet_section",
