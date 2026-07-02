@@ -17,6 +17,20 @@ CONTRACT_QTY_GROWTH = 0.25
 # (List > Error Log, filter title "like Contract SO%").
 SO_LOG_PREFIX = "Contract SO"
 
+# Shared "Fuelbuddy Settings" single doctype (hosted in this app, read by all FuelBuddy
+# apps): the "submit_sales_order" flag decides whether a freshly created contract Sales
+# Order is submitted on creation or left in Draft for manual review/approval.
+FB_SETTINGS_DOCTYPE = "Fuelbuddy Settings"
+
+
+def _should_submit_sales_order():
+	"""Whether a freshly created contract Sales Order should be submitted (vs left in
+	Draft). Controlled by "Submit Sales Order on Creation" on the single "Fuelbuddy
+	Settings"; defaults to submitting when the flag has never been set (preserving the
+	always-submit behaviour)."""
+	value = frappe.db.get_single_value(FB_SETTINGS_DOCTYPE, "submit_sales_order")
+	return True if value is None else bool(value)
+
 
 def _log_so(title, opportunity=None, quotation=None, detail=None, traceback=False):
 	"""Record an SO-automation outcome in the Error Log. Used for failures, RQ
@@ -327,11 +341,13 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 	# template above, anchored to the SO's own posting date.
 	so.set("payment_schedule", [])
 
-	# Create the SO and submit it. Sales Order has no workflow, so a freshly created
-	# contract Sales Order is inserted and submitted directly (same as the manual
-	# "Create Sales Order" flow).
+	# Create the SO, then submit it only if "Submit Sales Order on Creation" is enabled
+	# in Fuelbuddy Settings (default on) -- otherwise leave it in Draft for manual review/
+	# approval. Sales Order has no workflow, so it is inserted and submitted directly (same
+	# as the manual "Create Sales Order" flow).
 	so.insert(ignore_permissions=True)
-	so.submit()
+	if _should_submit_sales_order():
+		so.submit()
 
 	if set_stage and opportunity:
 		frappe.db.set_value("Opportunity", opportunity, "sales_stage", "Sales Order Created")

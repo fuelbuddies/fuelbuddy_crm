@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "crm_section",
+  "submit_sales_order",
   "enable_manual_order_creation",
   "finance_dossier_section",
   "credit_limit_section",
@@ -20,6 +21,13 @@
    "fieldname": "crm_section",
    "fieldtype": "Section Break",
    "label": "CRM / Sales Automation"
+  },
+  {
+   "default": "1",
+   "description": "When enabled, contract Sales Orders created from a Quotation (on Quotation submit and by the monthly scheduler) are submitted automatically on creation. When disabled, they are left in Draft for manual review/approval. Independent of \"Enable Manual Sales Order Creation\".",
+   "fieldname": "submit_sales_order",
+   "fieldtype": "Check",
+   "label": "Submit Sales Order on Creation"
   },
   {
    "default": "0",
