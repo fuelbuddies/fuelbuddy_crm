@@ -76,6 +76,53 @@ def get_quotation_discount(quotation):
 	return frappe.db.get_value("Discount", {"quotation": quotation}, "name")
 
 
+def writeback_opportunity_discount(doc, method=None):
+	"""Opportunity ``before_save`` -> maintain the Opportunity's backing Discount
+	(``party == Opportunity``) from the discount tab. This Discount is the template that
+	``ensure_quotation_discount`` copies onto each Quotation.
+
+	Replaces the "Opportunity Discount Writeback" DB Server Script (code-first, no DB
+	scripts) and adds the missing pricing-model gate: a **Fixed Rate** Opportunity carries
+	no discount, so nothing is created/updated -- the discount tab no longer forces a
+	Discount when it isn't wanted. Only "Pump Minus Discount" (or a legacy blank pricing
+	model with a discount method set) writes back."""
+	if doc.get("custom_pricing_model") == "Fixed Rate":
+		return
+	if not doc.get("custom_discount_method"):
+		return
+
+	existing = frappe.db.get_value("Discount", {"party": doc.name}, "name")
+	dstatus = frappe.db.get_value("Discount", existing, "docstatus") if existing else None
+
+	values = {
+		"discount_type": doc.custom_discount_method,
+		"p_or_v": doc.custom_percentageper_litre,
+		"percentage_value": doc.custom_percentage_value,
+		"per_litre_value": doc.custom_per_litre_value,
+		"threshold_value": doc.custom_max_discount_value,
+		"date": doc.custom_discount_upto_date,
+	}
+
+	# A submitted backing Discount can only take a header-level update (child rows and
+	# doc.save() are not allowed once submitted).
+	if existing and dstatus and dstatus > 0:
+		frappe.db.set_value("Discount", existing, values)
+		return
+
+	dc = frappe.get_doc("Discount", existing) if existing else frappe.new_doc("Discount")
+	if not existing:
+		dc.party = doc.name
+	if doc.get("opportunity_from") == "Customer":
+		dc.customer = doc.party_name
+	dc.product = doc.get("custom_product")
+	dc.company = doc.company
+	for field, value in values.items():
+		dc.set(field, value)
+	_copy_slab(doc.get("custom_slab_discount"), dc, "slab_discount")
+	dc.flags.ignore_permissions = True
+	dc.save()
+
+
 def _template_discount_for(doc):
 	"""The Discount to copy from the first time: the one the Quotation was
 	created against (``custom_discount_type``) or, failing that, the
