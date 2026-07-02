@@ -13,6 +13,7 @@
   "credit_limit_section",
   "enable_credit_limit",
   "business_documents_section",
+  "document_required",
   "wallet_section",
   "enable_wallet"
  ],
@@ -57,6 +58,13 @@
    "fieldname": "business_documents_section",
    "fieldtype": "Section Break",
    "label": "Business Documents"
+  },
+  {
+   "default": "1",
+   "description": "When enabled, Business Documents are enforced across the deal flow: the Finance Dossier cannot be submitted until at least one document is uploaded on the deal chain (Opportunity / Quotation / Customer / Lead / Finance Dossier) and every uploaded document is approved. When disabled, all document validations are bypassed and the flow proceeds without any document uploads.",
+   "fieldname": "document_required",
+   "fieldtype": "Check",
+   "label": "Document Required"
   },
   {
    "fieldname": "wallet_section",
