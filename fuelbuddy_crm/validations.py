@@ -7,6 +7,10 @@ Server Scripts):
   - Discount-tab values must not be negative (Opportunity / Quotation) -- BUG-004.
   - An Opportunity's Contract Expiry / Valid Till must not precede its transaction
     date -- BUG-007.
+  - Server-side mirrors of the form Client Scripts' calculations/rules, so bulk
+    upload (Data Import) -- where Client Scripts never run -- produces the same
+    values: Opportunity Value amount, UOM default + whitelist, discount Upto Date
+    default, and the HSE reason-for-rejection rule.
 """
 
 import frappe
@@ -139,6 +143,121 @@ def block_manual_sales_order(doc, method=None):
 				"submitted / approved first."
 			).format(quotation)
 		)
+
+
+def apply_opportunity_calculations(doc, method=None):
+	"""Server-side mirror of the "Price List Rate In Oppportunity" and "Add Discount On
+	Opportunity" Client Scripts, so bulk upload (Data Import) computes/validates the same
+	way the form does.
+
+	  - custom_uom defaults to Litre when a product is set.
+	  - custom_uom must be one of the product's UOMs (the form enforces this via a
+	    set_query filter, which an import bypasses).
+	  - custom_rate, when empty, is fetched from the ex-VAT price list and converted to
+	    custom_uom -- same source and conversion the form uses. A rate supplied in the
+	    import (or overridden on the form) is kept as-is.
+	  - opportunity_amount = custom_expected_monthly_volume * custom_rate, and
+	    base_opportunity_amount = opportunity_amount * conversion_rate.
+	    Skipped when neither volume nor rate is set (legacy docs without the
+	    Opportunity Value section keep their manually-entered amount).
+	  - custom_discount_upto_date defaults to custom_contract_expiry."""
+	if doc.get("custom_product"):
+		if not doc.get("custom_uom"):
+			doc.custom_uom = "Litre"
+		allowed_uoms = frappe.get_all(
+			"UOM Conversion Detail",
+			filters={"parenttype": "Item", "parent": doc.custom_product},
+			pluck="uom",
+		)
+		if doc.custom_uom not in allowed_uoms:
+			frappe.throw(
+				_("UOM {0} is not defined on Item {1}. Allowed: {2}").format(
+					doc.custom_uom, doc.custom_product, ", ".join(allowed_uoms)
+				)
+			)
+		if not flt(doc.get("custom_rate")):
+			doc.custom_rate = _ex_vat_rate(doc.custom_product, doc.custom_uom)
+
+	volume = flt(doc.get("custom_expected_monthly_volume"))
+	rate = flt(doc.get("custom_rate"))
+	if volume or rate:
+		doc.opportunity_amount = volume * rate
+		doc.base_opportunity_amount = doc.opportunity_amount * (flt(doc.get("conversion_rate")) or 1)
+
+	default_discount_upto_date(doc)
+
+
+# The price list the Opportunity Value rate comes from; maintained in the item's stock UOM.
+_EX_VAT_PRICE_LIST = "Selling Price List Excluding VAT"
+
+
+def _ex_vat_rate(item_code, uom):
+	"""Ex-VAT price-list rate for the item, converted to ``uom``.
+
+	Mirrors the client's fetch_ex_vat_rate/apply_rate_for_uom: newest Item Price on the
+	ex-VAT price list in the item's STOCK uom, times the same conversion factor Sales
+	Order Item uses (erpnext get_conversion_factor). Returns 0 (with a warning, like the
+	client's alert) when the item has no ex-VAT price."""
+	from erpnext.stock.get_item_details import get_conversion_factor
+
+	base_rate = frappe.db.get_value(
+		"Item Price",
+		{
+			"item_code": item_code,
+			"price_list": _EX_VAT_PRICE_LIST,
+			"uom": frappe.db.get_value("Item", item_code, "stock_uom"),
+		},
+		"price_list_rate",
+		order_by="creation desc",
+	)
+	if not base_rate:
+		frappe.msgprint(
+			_("No '{0}' price found for {1}; rate set to 0.").format(_EX_VAT_PRICE_LIST, item_code),
+			indicator="orange",
+		)
+		return 0
+	cf = flt(get_conversion_factor(item_code, uom).get("conversion_factor")) or 1
+	return flt(base_rate) * cf
+
+
+def default_discount_upto_date(doc, method=None):
+	"""Discount "Upto Date" defaults to the Contract Expiry (mirrors the "Add Discount On
+	Opportunity" / "Quotation Discount Tab" Client Scripts for Data Import)."""
+	if not doc.get("custom_discount_upto_date") and doc.get("custom_contract_expiry"):
+		doc.custom_discount_upto_date = doc.custom_contract_expiry
+
+
+def validate_non_negative_opportunity_values(doc, method=None):
+	"""Expected Monthly Volume and Rate must not be negative (they drive
+	opportunity_amount = volume * rate, so a negative slips a negative deal value
+	into the pipeline). Authoritative server-side check; opportunity.js mirrors it
+	client-side for immediate feedback."""
+	for fieldname, label in (
+		("custom_expected_monthly_volume", "Expected Monthly Volume"),
+		("custom_rate", "Rate"),
+	):
+		if flt(doc.get(fieldname)) < 0:
+			frappe.throw(_("{0} cannot be negative.").format(_(label)))
+
+
+def validate_hse_checks(doc, method=None):
+	"""Every Opportunity HSE row needs either a linked HSE Check or a Reason for
+	Rejection -- exactly one of the two.
+
+	Intended by the "HSE_Check_Rejection_Validation" Client Script, which is a dead
+	no-op: it tests ``row.custom_hse_check === 0/1`` but the real field is ``hse_check``
+	(a Link to HSE Inspection, never the custom_-prefixed name), so ``undefined``
+	matches neither branch. This is the authoritative check, using the real field."""
+	for row in doc.get("custom_opportunity_hse") or []:
+		row_label = _("Row {0} - {1}").format(row.idx, row.get("address") or "")
+		if not row.get("hse_check") and not row.get("reason_for_rejection"):
+			frappe.throw(
+				_("{0}: Reason for rejection is required when there is no HSE Check.").format(row_label)
+			)
+		if row.get("hse_check") and row.get("reason_for_rejection"):
+			frappe.throw(
+				_("{0}: Reason for rejection must be empty if there is an HSE Check.").format(row_label)
+			)
 
 
 def validate_opportunity_valid_till(doc, method=None):
