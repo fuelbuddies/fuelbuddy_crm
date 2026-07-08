@@ -278,6 +278,9 @@ fixtures = [
 doc_events = {
     "Opportunity": {
         "validate": [
+            "fuelbuddy_crm.validations.validate_non_negative_opportunity_values",
+            "fuelbuddy_crm.validations.apply_opportunity_calculations",
+            "fuelbuddy_crm.validations.validate_hse_checks",
             "fuelbuddy_crm.validations.validate_discount_values",
             "fuelbuddy_crm.validations.validate_opportunity_valid_till",
             "fuelbuddy_crm.discount_sync.guard_opportunity_discount",
@@ -293,12 +296,16 @@ doc_events = {
         "validate": [
             "fuelbuddy_crm.quotation_link.enforce_one_per_opportunity",
             "fuelbuddy_crm.validations.validate_discount_values",
+            "fuelbuddy_crm.validations.default_discount_upto_date",
         ],
         "after_insert": [
             "fuelbuddy_crm.discount_sync.ensure_quotation_discount",
             "fuelbuddy_crm.finance_dossier.create_for_quotation",
         ],
         "on_update": "fuelbuddy_crm.discount_sync.propagate_quotation_discount",
+        # FD-first flow: the Finance Dossier must be submitted BEFORE the Quotation;
+        # the Quotation submit is what starts the contract SO automation.
+        "before_submit": "fuelbuddy_crm.finance_dossier.require_submitted_dossier",
         "on_submit": [
             "fuelbuddy_crm.sales_automation.on_quotation_submit",
             "fuelbuddy_crm.discount_sync.submit_quotation_discount",
@@ -308,6 +315,14 @@ doc_events = {
     },
     "Sales Order": {
         "before_insert": "fuelbuddy_crm.validations.block_manual_sales_order",
+    },
+    "Finance Dossier": {
+        # Keep Quotation.custom_finance_dossier pointing at the current dossier
+        # (creation AND manual amendments) — server-side, replacing the old
+        # after_save JS writeback that only ran for browser saves.
+        "after_insert": "fuelbuddy_crm.finance_dossier.sync_source_reference",
+        "on_submit": "fuelbuddy_crm.finance_dossier.sync_source_reference",
+        "on_cancel": "fuelbuddy_crm.finance_dossier.sync_source_reference",
     },
 }
 

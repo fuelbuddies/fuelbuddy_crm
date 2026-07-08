@@ -321,6 +321,11 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 		so.custom_payment_terms = qdoc.get("custom_payment_terms") or frappe.db.get_value(
 			"Opportunity", opportunity, "custom_payment_terms"
 		)
+	# Carry the Invoicing Type down the same chain (Opportunity -> Quotation -> SO).
+	if not so.get("custom_invoicing_type"):
+		so.custom_invoicing_type = qdoc.get("custom_invoicing_type") or frappe.db.get_value(
+			"Opportunity", opportunity, "custom_invoicing_type"
+		)
 
 	for row in so.items:
 		row.delivery_date = month_end

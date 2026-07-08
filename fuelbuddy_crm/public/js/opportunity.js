@@ -78,3 +78,23 @@ frappe.ui.form.on("Opportunity", {
 		}
 	},
 });
+
+// Expected Monthly Volume / Rate must not be negative — immediate client-side guard;
+// the authoritative check is fuelbuddy_crm.validations.validate_non_negative_opportunity_values.
+frappe.ui.form.on("Opportunity", {
+	validate: function (frm) {
+		[
+			["custom_expected_monthly_volume", __("Expected Monthly Volume")],
+			["custom_rate", __("Rate")],
+		].forEach(function ([fieldname, label]) {
+			if (flt(frm.doc[fieldname]) < 0) {
+				frappe.validated = false;
+				frappe.msgprint({
+					title: __("Invalid value"),
+					message: __("{0} cannot be negative.", [label]),
+					indicator: "red",
+				});
+			}
+		});
+	},
+});
