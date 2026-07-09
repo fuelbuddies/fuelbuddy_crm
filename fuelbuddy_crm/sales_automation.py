@@ -84,10 +84,18 @@ def create_sales_order_if_ready(opportunity):
 
 		# Run SO creation/submission in the background (as Administrator) so the
 		# workflow "Approve" transition is permitted regardless of who submitted.
+		#
+		# deduplicate + job_id: ONE queued job per (quotation, month) no matter how
+		# many triggers fire. A single FD approval realistically fires this 3+ times
+		# (FD on_submit, the workflow/bizdocs post-submit saves, a Quotation
+		# post-submit save) — without dedup that queued 3+ jobs whose concurrent
+		# check-then-act idempotency raced and produced 3 Sales Orders (prod bug).
 		frappe.enqueue(
 			"fuelbuddy_crm.sales_automation.create_contract_month_so",
 			queue=CONTRACT_SO_QUEUE,
 			enqueue_after_commit=True,
+			job_id=f"contract-so::{source}::{nowdate()[:7]}",
+			deduplicate=True,
 			quotation=source,
 			target_date=nowdate(),
 			set_stage=True,
@@ -196,6 +204,12 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 			detail=f"custom_contract_expiry={expiry}, month_start={month_start}",
 		)
 		return None
+
+	# Serialize concurrent jobs on this quotation: the existence check below is
+	# check-then-act, so without a lock two workers can both see "no SO this month"
+	# and both create one. The row lock makes the second worker wait, then find the
+	# first worker's SO. (Belt to the enqueue-level deduplicate braces.)
+	frappe.db.get_value("Quotation", quotation, "name", for_update=True)
 
 	# Idempotent: one Sales Order per (quotation, month).
 	existing = frappe.get_all(
