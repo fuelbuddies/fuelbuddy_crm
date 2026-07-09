@@ -316,6 +316,15 @@ doc_events = {
     "Sales Order": {
         "before_insert": "fuelbuddy_crm.validations.block_manual_sales_order",
     },
+    "Delivery Note": {
+        # DN punching guards (moved here from the repo-less fuelbuddy_dubai app):
+        # app-level dedup — custom_invoiced_item_id is deliberately NOT unique
+        # (versioned amendments reuse it), so enforce "one live DN per invoiced
+        # item" in code; and amendment versioning — custom_version is no_copy,
+        # so a UI amend resets it to "1" unless recomputed as parent+1.
+        "validate": "fuelbuddy_crm.dn_validation.enforce_single_active_dn",
+        "before_insert": "fuelbuddy_crm.dn_versioning.set_amended_version",
+    },
     "Finance Dossier": {
         # Keep Quotation.custom_finance_dossier pointing at the current dossier
         # (creation AND manual amendments) — server-side, replacing the old
