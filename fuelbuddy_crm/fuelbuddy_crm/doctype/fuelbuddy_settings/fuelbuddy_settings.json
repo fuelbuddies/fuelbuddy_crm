@@ -10,6 +10,7 @@
   "submit_sales_order",
   "enable_manual_order_creation",
   "finance_dossier_section",
+  "fd_first_flow",
   "credit_limit_section",
   "enable_credit_limit",
   "business_documents_section",
@@ -41,6 +42,13 @@
    "fieldname": "finance_dossier_section",
    "fieldtype": "Section Break",
    "label": "Finance Dossier"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, the Finance Dossier must be SUBMITTED before its Quotation can be submitted, and the contract Sales Order is triggered only by the Quotation submit (FD-first flow). When disabled, the legacy order applies: Quotation submits first, the Finance Dossier requires a submitted Quotation, and the FD submit triggers the Sales Order. Flip this ONLY after both fuelbuddy_crm and fuelbuddy_finance_dossier carrying the flow are deployed.",
+   "fieldname": "fd_first_flow",
+   "fieldtype": "Check",
+   "label": "FD-First Flow (dossier approved before Quotation)"
   },
   {
    "fieldname": "credit_limit_section",

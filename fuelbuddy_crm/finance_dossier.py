@@ -64,7 +64,14 @@ def require_submitted_dossier(doc, method=None):
 
 	The Finance Dossier is approved first, then the Quotation is submitted (which
 	is what kicks off the contract Sales Order). Blocking here keeps a Quotation
-	from entering the SO pipeline without an approved dossier."""
+	from entering the SO pipeline without an approved dossier.
+
+	Gated on the "FD-First Flow" flag (Fuelbuddy Settings) so fuelbuddy_crm and
+	fuelbuddy_finance_dossier can deploy independently: with the flag OFF the
+	legacy order (Quotation first) applies unchanged, and the flag is flipped
+	once both apps are live."""
+	if not frappe.db.get_single_value("Fuelbuddy Settings", "fd_first_flow"):
+		return
 	dossier = get_quotation_dossier(doc.name)
 	if not dossier:
 		cancelled = frappe.db.get_value(
