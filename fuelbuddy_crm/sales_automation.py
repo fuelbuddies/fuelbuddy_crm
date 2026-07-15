@@ -293,7 +293,12 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 			so.customer_name = frappe.db.get_value("Customer", new_customer, "customer_name")
 
 	so.custom_quotation = quotation
-	so.transaction_date = nowdate()
+	# The contract's FIRST Sales Order inherits the Quotation's transaction_date
+	# (which itself follows the Opportunity's custom "Opportunity Creation Date"
+	# when that is set), keeping the deal's documents on one timeline. Subsequent
+	# monthly SOs (cloned from `template` by the cron) are fresh orders raised in
+	# their own month and keep today's date.
+	so.transaction_date = nowdate() if template else (qdoc.transaction_date or nowdate())
 	so.delivery_date = month_end
 
 	# Mirror the Quotation's Discount tab onto the (read-only) Sales Order Discount
