@@ -5,3 +5,4 @@
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
 fuelbuddy_crm.patches.remove_quotation_creation_scripts
+fuelbuddy_crm.patches.remove_crm_server_scripts

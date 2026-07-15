@@ -187,11 +187,13 @@ doctype_js = {
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
-# Add FuelBuddy connections (Finance Dossier, Business Documentation) to the
-# Opportunity form's Connections tab. The override fn receives the base dashboard
-# `data` dict and returns it augmented.
+# Add FuelBuddy connections to the Connections tab: Finance Dossier + Business
+# Documentation on Opportunity, Finance Dossier on Quotation (internal link via
+# custom_finance_dossier). The override fn receives the base dashboard `data`
+# dict and returns it augmented.
 override_doctype_dashboards = {
     "Opportunity": "fuelbuddy_crm.dashboard_overrides.opportunity_dashboard",
+    "Quotation": "fuelbuddy_crm.dashboard_overrides.quotation_dashboard",
 }
 
 # exempt linked doctypes from being automatically cancelled
@@ -272,17 +274,22 @@ fixtures = [
     {"dt": "Custom Field", "filters": [["dt", "in", _CUSTOM_FIELD_DOCTYPES]]},
     {"dt": "Property Setter", "filters": [["doc_type", "in", _PROPERTY_SETTER_DOCTYPES]]},
     {"dt": "Client Script", "filters": [["dt", "in", _CRM_DOCTYPES]]},
-    {"dt": "Server Script", "filters": [["reference_doctype", "in", _CRM_DOCTYPES]]},
 ]
 
 doc_events = {
     "Opportunity": {
         "validate": [
+            "fuelbuddy_crm.validations.validate_non_negative_opportunity_values",
+            "fuelbuddy_crm.validations.apply_opportunity_calculations",
+            "fuelbuddy_crm.validations.validate_hse_checks",
             "fuelbuddy_crm.validations.validate_discount_values",
             "fuelbuddy_crm.validations.validate_opportunity_valid_till",
             "fuelbuddy_crm.discount_sync.guard_opportunity_discount",
         ],
-        "before_save": "fuelbuddy_crm.discount_sync.writeback_opportunity_discount",
+        "before_save": [
+            "fuelbuddy_crm.validations.sync_opportunity_value_item",
+            "fuelbuddy_crm.discount_sync.writeback_opportunity_discount",
+        ],
         "on_update": "fuelbuddy_crm.discount_sync.propagate_opportunity_discount",
     },
     "Discount": {
@@ -293,12 +300,19 @@ doc_events = {
         "validate": [
             "fuelbuddy_crm.quotation_link.enforce_one_per_opportunity",
             "fuelbuddy_crm.validations.validate_discount_values",
+            "fuelbuddy_crm.validations.default_discount_upto_date",
         ],
         "after_insert": [
             "fuelbuddy_crm.discount_sync.ensure_quotation_discount",
             "fuelbuddy_crm.finance_dossier.create_for_quotation",
         ],
-        "on_update": "fuelbuddy_crm.discount_sync.propagate_quotation_discount",
+        "on_update": [
+            "fuelbuddy_crm.discount_sync.propagate_quotation_discount",
+            "fuelbuddy_crm.quotation_link.sync_status_to_opportunity",
+        ],
+        # FD-first flow: the Finance Dossier must be submitted BEFORE the Quotation;
+        # the Quotation submit is what starts the contract SO automation.
+        "before_submit": "fuelbuddy_crm.finance_dossier.require_submitted_dossier",
         "on_submit": [
             "fuelbuddy_crm.sales_automation.on_quotation_submit",
             "fuelbuddy_crm.discount_sync.submit_quotation_discount",
@@ -308,6 +322,23 @@ doc_events = {
     },
     "Sales Order": {
         "before_insert": "fuelbuddy_crm.validations.block_manual_sales_order",
+    },
+    "Delivery Note": {
+        # DN punching guards (moved here from the repo-less fuelbuddy_dubai app):
+        # app-level dedup — custom_invoiced_item_id is deliberately NOT unique
+        # (versioned amendments reuse it), so enforce "one live DN per invoiced
+        # item" in code; and amendment versioning — custom_version is no_copy,
+        # so a UI amend resets it to "1" unless recomputed as parent+1.
+        "validate": "fuelbuddy_crm.dn_validation.enforce_single_active_dn",
+        "before_insert": "fuelbuddy_crm.dn_versioning.set_amended_version",
+    },
+    "Finance Dossier": {
+        # Keep Quotation.custom_finance_dossier pointing at the current dossier
+        # (creation AND manual amendments) — server-side, replacing the old
+        # after_save JS writeback that only ran for browser saves.
+        "after_insert": "fuelbuddy_crm.finance_dossier.sync_source_reference",
+        "on_submit": "fuelbuddy_crm.finance_dossier.sync_source_reference",
+        "on_cancel": "fuelbuddy_crm.finance_dossier.sync_source_reference",
     },
 }
 

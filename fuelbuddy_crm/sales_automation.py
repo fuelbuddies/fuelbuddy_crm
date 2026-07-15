@@ -84,10 +84,18 @@ def create_sales_order_if_ready(opportunity):
 
 		# Run SO creation/submission in the background (as Administrator) so the
 		# workflow "Approve" transition is permitted regardless of who submitted.
+		#
+		# deduplicate + job_id: ONE queued job per (quotation, month) no matter how
+		# many triggers fire. A single FD approval realistically fires this 3+ times
+		# (FD on_submit, the workflow/bizdocs post-submit saves, a Quotation
+		# post-submit save) — without dedup that queued 3+ jobs whose concurrent
+		# check-then-act idempotency raced and produced 3 Sales Orders (prod bug).
 		frappe.enqueue(
 			"fuelbuddy_crm.sales_automation.create_contract_month_so",
 			queue=CONTRACT_SO_QUEUE,
 			enqueue_after_commit=True,
+			job_id=f"contract-so::{source}::{nowdate()[:7]}",
+			deduplicate=True,
 			quotation=source,
 			target_date=nowdate(),
 			set_stage=True,
@@ -197,6 +205,12 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 		)
 		return None
 
+	# Serialize concurrent jobs on this quotation: the existence check below is
+	# check-then-act, so without a lock two workers can both see "no SO this month"
+	# and both create one. The row lock makes the second worker wait, then find the
+	# first worker's SO. (Belt to the enqueue-level deduplicate braces.)
+	frappe.db.get_value("Quotation", quotation, "name", for_update=True)
+
 	# Idempotent: one Sales Order per (quotation, month).
 	existing = frappe.get_all(
 		"Sales Order",
@@ -279,7 +293,12 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 			so.customer_name = frappe.db.get_value("Customer", new_customer, "customer_name")
 
 	so.custom_quotation = quotation
-	so.transaction_date = nowdate()
+	# The contract's FIRST Sales Order inherits the Quotation's transaction_date
+	# (which itself follows the Opportunity's custom "Opportunity Creation Date"
+	# when that is set), keeping the deal's documents on one timeline. Subsequent
+	# monthly SOs (cloned from `template` by the cron) are fresh orders raised in
+	# their own month and keep today's date.
+	so.transaction_date = nowdate() if template else (qdoc.transaction_date or nowdate())
 	so.delivery_date = month_end
 
 	# Mirror the Quotation's Discount tab onto the (read-only) Sales Order Discount
@@ -320,6 +339,11 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 	if not so.get("custom_payment_terms"):
 		so.custom_payment_terms = qdoc.get("custom_payment_terms") or frappe.db.get_value(
 			"Opportunity", opportunity, "custom_payment_terms"
+		)
+	# Carry the Invoicing Type down the same chain (Opportunity -> Quotation -> SO).
+	if not so.get("custom_invoicing_type"):
+		so.custom_invoicing_type = qdoc.get("custom_invoicing_type") or frappe.db.get_value(
+			"Opportunity", opportunity, "custom_invoicing_type"
 		)
 
 	for row in so.items:

@@ -39,6 +39,53 @@ def get_quotation_dossier(quotation):
 	)
 
 
+def sync_source_reference(doc, method=None):
+	"""Finance Dossier after_insert / on_submit / on_cancel -> stamp the CURRENT live
+	dossier's name on the source Quotation (custom_finance_dossier, read-only).
+
+	Always recomputed via get_quotation_dossier, so a cancel CLEARS the link (a
+	Quotation pointing at a cancelled doc would fail Frappe's link validation on
+	every save) and an amendment re-stamps it. Server-side replacement for the old
+	finance_dossier.js after_save writeback, which only fired on browser saves (and
+	targeted a field that never existed)."""
+	if doc.finance_dossier_from != "Quotation" or not doc.id:
+		return
+	try:
+		frappe.db.set_value(
+			"Quotation", doc.id, "custom_finance_dossier",
+			get_quotation_dossier(doc.id), update_modified=False,
+		)
+	except Exception:
+		_log("failed to stamp custom_finance_dossier", quotation=doc.id, traceback=True)
+
+
+def require_submitted_dossier(doc, method=None):
+	"""Quotation before_submit -> its Finance Dossier must already be SUBMITTED.
+
+	The Finance Dossier is approved first, then the Quotation is submitted (which
+	is what kicks off the contract Sales Order). Blocking here keeps a Quotation
+	from entering the SO pipeline without an approved dossier."""
+	dossier = get_quotation_dossier(doc.name)
+	if not dossier:
+		cancelled = frappe.db.get_value(
+			"Finance Dossier",
+			{"finance_dossier_from": "Quotation", "id": doc.name, "docstatus": 2},
+			"name",
+			order_by="creation desc",
+		)
+		if cancelled:
+			frappe.throw(
+				frappe._("Finance Dossier {0} is cancelled. Amend it and submit the amendment before submitting this Quotation.").format(cancelled)
+			)
+		frappe.throw(
+			frappe._("No Finance Dossier is linked to this Quotation. Create and submit it before submitting the Quotation.")
+		)
+	if frappe.db.get_value("Finance Dossier", dossier, "docstatus") != 1:
+		frappe.throw(
+			frappe._("Finance Dossier {0} must be submitted before submitting this Quotation.").format(dossier)
+		)
+
+
 def create_for_quotation(doc, method=None):
 	"""Quotation after_insert -> create its Draft Finance Dossier (idempotent).
 
@@ -67,7 +114,14 @@ def create_for_quotation(doc, method=None):
 		fd.finance_dossier_from = "Quotation"
 		fd.id = doc.name
 		fd.address = address
-		fd.expected_monthly_volume = doc.get("total_qty")
+		# Quotation total_qty is the contracted monthly volume; fall back to the
+		# Opportunity's Expected Monthly Volume when the Quotation has no items yet.
+		volume = doc.get("total_qty")
+		if not volume and doc.get("custom_opportunity_from"):
+			volume = frappe.db.get_value(
+				"Opportunity", doc.custom_opportunity_from, "custom_expected_monthly_volume"
+			)
+		fd.expected_monthly_volume = volume
 		fd.deal_type = doc.get("custom_deal_type")
 		fd.pricing_model = doc.get("custom_pricing_model")
 		fd.payment_term = doc.get("custom_payment_terms")
