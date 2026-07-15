@@ -231,3 +231,14 @@ def create_quotation_from_opportunity(opportunity):
 	# the button on an Opportunity that already has one keeps its stage.
 	frappe.db.set_value("Opportunity", doc.name, "sales_stage", "Send for Quotation")
 	return {"created_quotation": quotation.name, "already_existed": False}
+
+
+def sync_status_to_opportunity(doc, method=None):
+	"""Quotation on_update -> mirror the Quotation's status onto the Opportunity's
+	custom_quotation_status. Moved here from the "Quotation Status to Opportunity"
+	Server Script (see patches.remove_crm_server_scripts)."""
+	if doc.get("custom_opportunity_from") and frappe.db.exists("Opportunity", doc.custom_opportunity_from):
+		frappe.db.set_value(
+			"Opportunity", doc.custom_opportunity_from, "custom_quotation_status", doc.status,
+			update_modified=False,
+		)

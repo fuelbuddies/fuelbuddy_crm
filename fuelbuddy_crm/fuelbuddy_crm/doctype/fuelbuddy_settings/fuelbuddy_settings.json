@@ -9,8 +9,6 @@
   "crm_section",
   "submit_sales_order",
   "enable_manual_order_creation",
-  "finance_dossier_section",
-  "fd_first_flow",
   "credit_limit_section",
   "enable_credit_limit",
   "business_documents_section",
@@ -39,18 +37,6 @@
    "label": "Enable Manual Sales Order Creation"
   },
   {
-   "fieldname": "finance_dossier_section",
-   "fieldtype": "Section Break",
-   "label": "Finance Dossier"
-  },
-  {
-   "default": "0",
-   "description": "When enabled, the Finance Dossier must be SUBMITTED before its Quotation can be submitted, and the contract Sales Order is triggered only by the Quotation submit (FD-first flow). When disabled, the legacy order applies: Quotation submits first, the Finance Dossier requires a submitted Quotation, and the FD submit triggers the Sales Order. Flip this ONLY after both fuelbuddy_crm and fuelbuddy_finance_dossier carrying the flow are deployed.",
-   "fieldname": "fd_first_flow",
-   "fieldtype": "Check",
-   "label": "FD-First Flow (dossier approved before Quotation)"
-  },
-  {
    "fieldname": "credit_limit_section",
    "fieldtype": "Section Break",
    "label": "Credit Limit"
@@ -63,18 +49,6 @@
    "label": "Enable Credit Limit"
   },
   {
-   "fieldname": "business_documents_section",
-   "fieldtype": "Section Break",
-   "label": "Business Documents"
-  },
-  {
-   "default": "1",
-   "description": "When enabled, Business Documents are enforced across the deal flow: the Finance Dossier cannot be submitted until at least one document is uploaded on the deal chain (Opportunity / Quotation / Customer / Lead / Finance Dossier) and every uploaded document is approved. When disabled, all document validations are bypassed and the flow proceeds without any document uploads.",
-   "fieldname": "document_required",
-   "fieldtype": "Check",
-   "label": "Document Required"
-  },
-  {
    "fieldname": "wallet_section",
    "fieldtype": "Section Break",
    "label": "Wallet"
@@ -85,13 +59,25 @@
    "fieldname": "enable_wallet",
    "fieldtype": "Check",
    "label": "Enable Wallet"
+  },
+  {
+   "fieldname": "business_documents_section",
+   "fieldtype": "Section Break",
+   "label": "Business Documents"
+  },
+  {
+   "default": "1",
+   "description": "When enabled, a Finance Dossier cannot be submitted unless every Business Documentation on its deal chain exists and is APPROVED, and documents cannot be uploaded or changed on a submitted reference (except the Finance Dossier's own panel). When disabled, none of the document checks run.",
+   "fieldname": "document_required",
+   "fieldtype": "Check",
+   "label": "Document Required"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-06-25 12:00:00.000000",
+ "modified": "2026-07-15 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "Fuelbuddy CRM",
  "name": "Fuelbuddy Settings",

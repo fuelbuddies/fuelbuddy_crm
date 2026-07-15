@@ -271,3 +271,42 @@ def validate_opportunity_valid_till(doc, method=None):
 	transaction_date = doc.get("transaction_date")
 	if valid_till and transaction_date and getdate(valid_till) < getdate(transaction_date):
 		frappe.throw(_("Valid till date cannot be before transaction date"))
+
+
+def sync_opportunity_value_item(doc, method=None):
+	"""Opportunity before_save -> replicate the Opportunity Value section
+	(custom_product / volume / rate) into the standard items table and recompute the
+	items totals. Moved here from the "Item Creation at Opportunity Level" Server
+	Script (see patches.remove_crm_server_scripts)."""
+	if doc.get("custom_product"):
+		qty = flt(doc.get("custom_expected_monthly_volume"))
+		rate = flt(doc.get("custom_rate"))
+
+		existing_row = None
+		for item in (doc.items or []):
+			if item.item_code == doc.custom_product:
+				existing_row = item
+				break
+
+		if existing_row:
+			existing_row.uom = doc.get("custom_uom")
+			existing_row.qty = qty
+			existing_row.rate = rate
+			existing_row.base_rate = rate
+			existing_row.amount = rate * qty
+			existing_row.base_amount = rate * qty
+		else:
+			doc.append("items", {
+				"item_code": doc.custom_product,
+				"uom": doc.get("custom_uom"),
+				"qty": qty,
+				"rate": rate,
+				"base_rate": rate,
+				"amount": rate * qty,
+				"base_amount": rate * qty,
+			})
+
+		doc.run_method("set_missing_values")
+
+	doc.total = sum(flt(it.amount) for it in (doc.items or []))
+	doc.base_total = sum(flt(it.base_amount) or flt(it.amount) for it in (doc.items or []))

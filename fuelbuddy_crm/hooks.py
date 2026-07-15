@@ -274,7 +274,6 @@ fixtures = [
     {"dt": "Custom Field", "filters": [["dt", "in", _CUSTOM_FIELD_DOCTYPES]]},
     {"dt": "Property Setter", "filters": [["doc_type", "in", _PROPERTY_SETTER_DOCTYPES]]},
     {"dt": "Client Script", "filters": [["dt", "in", _CRM_DOCTYPES]]},
-    {"dt": "Server Script", "filters": [["reference_doctype", "in", _CRM_DOCTYPES]]},
 ]
 
 doc_events = {
@@ -287,7 +286,10 @@ doc_events = {
             "fuelbuddy_crm.validations.validate_opportunity_valid_till",
             "fuelbuddy_crm.discount_sync.guard_opportunity_discount",
         ],
-        "before_save": "fuelbuddy_crm.discount_sync.writeback_opportunity_discount",
+        "before_save": [
+            "fuelbuddy_crm.validations.sync_opportunity_value_item",
+            "fuelbuddy_crm.discount_sync.writeback_opportunity_discount",
+        ],
         "on_update": "fuelbuddy_crm.discount_sync.propagate_opportunity_discount",
     },
     "Discount": {
@@ -304,7 +306,10 @@ doc_events = {
             "fuelbuddy_crm.discount_sync.ensure_quotation_discount",
             "fuelbuddy_crm.finance_dossier.create_for_quotation",
         ],
-        "on_update": "fuelbuddy_crm.discount_sync.propagate_quotation_discount",
+        "on_update": [
+            "fuelbuddy_crm.discount_sync.propagate_quotation_discount",
+            "fuelbuddy_crm.quotation_link.sync_status_to_opportunity",
+        ],
         # FD-first flow: the Finance Dossier must be submitted BEFORE the Quotation;
         # the Quotation submit is what starts the contract SO automation.
         "before_submit": "fuelbuddy_crm.finance_dossier.require_submitted_dossier",
