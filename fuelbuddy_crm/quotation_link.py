@@ -148,6 +148,12 @@ def create_quotation_from_opportunity(opportunity):
 	quotation.ignore_pricing_rule = 1
 	quotation.custom_opportunity_from = doc.name
 	quotation.opportunity = doc.name
+	# When the custom "Opportunity Creation Date" field is set on the Opportunity,
+	# the Quotation is dated with it (transaction_date); otherwise ERPNext's
+	# default (today) stands. Downstream dates (payment schedule, valid-till
+	# check) key off transaction_date.
+	if doc.get("custom_opportunity_creation_date"):
+		quotation.transaction_date = doc.custom_opportunity_creation_date
 	quotation.valid_till = doc.custom_contract_expiry
 	quotation.customer_address = doc.custom_customer_billing_address
 	quotation.custom_deal_type = doc.custom_deal_type
