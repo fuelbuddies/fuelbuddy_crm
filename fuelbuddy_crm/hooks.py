@@ -187,11 +187,13 @@ doctype_js = {
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
-# Add FuelBuddy connections (Finance Dossier, Business Documentation) to the
-# Opportunity form's Connections tab. The override fn receives the base dashboard
-# `data` dict and returns it augmented.
+# Add FuelBuddy connections to the Connections tab: Finance Dossier + Business
+# Documentation on Opportunity, Finance Dossier on Quotation (internal link via
+# custom_finance_dossier). The override fn receives the base dashboard `data`
+# dict and returns it augmented.
 override_doctype_dashboards = {
     "Opportunity": "fuelbuddy_crm.dashboard_overrides.opportunity_dashboard",
+    "Quotation": "fuelbuddy_crm.dashboard_overrides.quotation_dashboard",
 }
 
 # exempt linked doctypes from being automatically cancelled

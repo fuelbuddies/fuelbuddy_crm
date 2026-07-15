@@ -26,3 +26,22 @@ def opportunity_dashboard(data):
 		{"label": _("FuelBuddy"), "items": ["Finance Dossier", "Business Documentation"]}
 	)
 	return data
+
+
+def quotation_dashboard(data):
+	"""Add the Finance Dossier connection to the Quotation form's Connections tab.
+
+	Driven by the Quotation's own read-only link (custom_finance_dossier, kept in
+	sync by finance_dossier.sync_source_reference) as an internal link -- the
+	dashboard reads the field off the doc instead of searching Finance Dossiers.
+
+	Registered via the `override_doctype_dashboards` hook; `data` is the base
+	dashboard dict produced by erpnext's quotation_dashboard.get_data().
+	"""
+	data = data or {}
+	data.setdefault("transactions", [])
+	data.setdefault("internal_links", {})
+
+	data["internal_links"]["Finance Dossier"] = "custom_finance_dossier"
+	data["transactions"].append({"label": _("FuelBuddy"), "items": ["Finance Dossier"]})
+	return data
