@@ -340,9 +340,20 @@ doc_events = {
         "on_submit": "fuelbuddy_crm.finance_dossier.sync_source_reference",
         "on_cancel": "fuelbuddy_crm.finance_dossier.sync_source_reference",
     },
+    "Sales Invoice": {
+        # Any invoice (manual or auto, even a Draft) advances the SO's
+        # last-invoiced date so the auto-invoicing scheduler never re-bills a
+        # period already covered (IDEV-3000).
+        "after_insert": "fuelbuddy_crm.auto_invoicing.update_so_last_invoiced",
+        "on_submit": "fuelbuddy_crm.auto_invoicing.update_so_last_invoiced",
+    },
 }
 
 scheduler_events = {
+    "daily": [
+        # thin wrapper -> long queue, 2h timeout (default queue caps at 5 min)
+        "fuelbuddy_crm.auto_invoicing.enqueue_generate_sales_invoices",
+    ],
     "monthly": [
         "fuelbuddy_crm.sales_automation.generate_monthly_contract_sales_orders",
     ],
