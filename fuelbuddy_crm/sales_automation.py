@@ -345,6 +345,11 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 		so.custom_invoicing_type = qdoc.get("custom_invoicing_type") or frappe.db.get_value(
 			"Opportunity", opportunity, "custom_invoicing_type"
 		)
+	# ... and the Invoicing Frequency, which drives the auto-invoicing cycle (IDEV-3000).
+	if not so.get("custom_invoicing_frequency"):
+		so.custom_invoicing_frequency = qdoc.get("custom_invoicing_frequency") or frappe.db.get_value(
+			"Opportunity", opportunity, "custom_invoicing_frequency"
+		)
 
 	for row in so.items:
 		row.delivery_date = month_end

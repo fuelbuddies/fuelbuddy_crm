@@ -231,34 +231,17 @@ def _opportunity_discount_changed(doc):
 
 
 def guard_opportunity_discount(doc, method=None):
-	"""Opportunity ``validate`` -> block a discount change once the deal is contracted.
-	The discount is locked the moment the Quotation or its Finance Dossier is submitted;
-	propagation only touches Drafts, so allowing the change afterwards would silently
-	drift from the signed contract."""
-	if not _opportunity_discount_changed(doc):
-		return
-	quotation = _linked_quotation(doc.name)
-	if not quotation:
-		return
-	if quotation.docstatus == 1:
-		frappe.throw(
-			_(
-				"Quotation {0} is already submitted, so its discount is locked. "
-				"Cancel/amend the Quotation to change the discount."
-			).format(quotation.name)
-		)
-	dossier = frappe.db.get_value(
-		"Finance Dossier",
-		{"finance_dossier_from": "Quotation", "id": quotation.name, "docstatus": 1},
-		"name",
-	)
-	if dossier:
-		frappe.throw(
-			_(
-				"Finance Dossier {0} is already submitted, so the discount is locked. "
-				"Cancel/amend it to change the discount."
-			).format(dossier)
-		)
+	"""Opportunity ``validate``: the discount is intentionally editable at ANY time,
+	including after the Quotation / Finance Dossier / Sales Order are submitted.
+
+	It is no longer locked at contract: which document the auto-invoicing scheduler
+	reads the discount formula from is decided by the "Auto Invoicing Discount Source"
+	setting on Fuelbuddy Settings (Quotation or Opportunity), so editing the
+	Opportunity discount later is a deliberate, safe operation -- when the source is
+	the Quotation the edit simply doesn't affect invoicing. (Contract-lock removed per
+	business request, 20 Jul 2026; ``propagate_opportunity_discount`` still pushes the
+	change down to any still-Draft Quotation/Discount/Finance Dossier.)"""
+	return
 
 
 def propagate_opportunity_discount(doc, method=None):

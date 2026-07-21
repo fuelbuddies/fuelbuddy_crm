@@ -9,6 +9,8 @@
   "crm_section",
   "submit_sales_order",
   "enable_manual_order_creation",
+  "enable_auto_invoicing",
+  "auto_invoicing_discount_source",
   "credit_limit_section",
   "enable_credit_limit",
   "business_documents_section",
@@ -35,6 +37,21 @@
    "fieldname": "enable_manual_order_creation",
    "fieldtype": "Check",
    "label": "Enable Manual Sales Order Creation"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, the daily auto-invoicing scheduler generates Draft Sales Invoices from due Sales Orders for ALL customers (Single/Split per the SO's Invoicing Type, cycle per its Invoicing Frequency). When disabled, only customers whose own \"Enable Auto Invoicing\" flag is ticked are invoiced.",
+   "fieldname": "enable_auto_invoicing",
+   "fieldtype": "Check",
+   "label": "Enable Auto Invoicing (All Customers)"
+  },
+  {
+   "default": "Quotation",
+   "description": "Which document's Discount tab the auto-invoicing scheduler reads the discount formula from when generating Sales Invoices: the SO's linked Quotation (default) or the Opportunity behind it.",
+   "fieldname": "auto_invoicing_discount_source",
+   "fieldtype": "Select",
+   "label": "Auto Invoicing Discount Source",
+   "options": "Quotation\nOpportunity"
   },
   {
    "fieldname": "credit_limit_section",
