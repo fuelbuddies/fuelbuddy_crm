@@ -14,6 +14,8 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+from fuelbuddy_crm.validations import _ex_vat_rate
+
 
 def guard_totals(doc, method=None):
 	"""Quotation ``before_validate`` -> make sure ``grand_total`` / ``base_grand_total``
@@ -193,9 +195,10 @@ def create_quotation_from_opportunity(opportunity):
 			_("Add at least one Product / Item on the Opportunity before creating a Quotation.")
 		)
 
-	# Insert items at their original price -- do NOT pre-discount the rate or the price
-	# list rate. The discount is captured on the Quotation's Discount tab, not by
-	# reducing the item price here.
+	# rate = Opportunity's negotiated value; price_list_rate = ex-VAT catalog rate (never
+	# rate itself, else discount is always 0 and the SO inherits it). _ex_vat_rate returns
+	# 0 when the item has no ex-VAT price (no backfill). ERPNext then derives
+	# discount_amount = price_list_rate - rate.
 	for item_code, qty, uom, base_rate in rows:
 		quotation.append(
 			"items",
@@ -204,7 +207,7 @@ def create_quotation_from_opportunity(opportunity):
 				"qty": qty,
 				"uom": uom,
 				"rate": base_rate,
-				"price_list_rate": base_rate,
+				"price_list_rate": _ex_vat_rate(item_code, uom),
 				"prevdoc_doctype": "Opportunity",
 				"prevdoc_docname": doc.name,
 			},

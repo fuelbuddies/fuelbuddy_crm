@@ -139,6 +139,11 @@ doctype_js = {
 # 	"ToDo": "custom_app.overrides.CustomToDo"
 # }
 
+# Discount <-> Quotation linked each other, so neither could be deleted first (deadlock).
+# Making Discount's outgoing links non-blocking makes it one-way: delete the Quotation
+# first, then the orphaned Discount.
+ignore_links_on_delete = ["Discount"]
+
 # Document Events
 # ---------------
 # Hook on document methods and events
