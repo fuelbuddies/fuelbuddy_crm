@@ -10,7 +10,8 @@ Invoices are built from the SO (party / taxes / rates via the standard SO->SI
 mapper) with quantities summed from the Delivery Notes in the invoicing window.
 Idempotency is by period, tracked on ``custom_last_invoiced_upto``: each window
 runs from the day after it (the SO transaction date for the first cycle) to
-today, so already-invoiced deliveries are excluded by date. The discount from
+today -- to the previous month-end for frequency 30 (monthly) -- so
+already-invoiced deliveries are excluded by date. The discount from
 the Quotation / Opportunity is applied per line off the catalog price.
 
 Failures are logged as an Issue (``issue_type = "Invoicing"``) without blocking
@@ -19,7 +20,7 @@ the batch.
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, cint, cstr, flt, getdate, nowdate, strip_html
+from frappe.utils import add_days, cint, cstr, flt, get_first_day, getdate, nowdate, strip_html
 
 ISSUE_TYPE = "Invoicing"
 VALID_INVOICING_TYPES = ("Single Invoice", "Split Invoice")
@@ -173,10 +174,12 @@ def _invoicing_window(so):
 	period, or None if not due / frequency unset.
 
 	Frequency is a value, not a truthiness: ``0`` is valid ("invoice per delivery",
-	due every day); a blank frequency has no cycle -> log + skip. ``to_date`` is
-	today (the DN window runs to today so no delivery is missed); ``posting_date``
-	is the frequency-meeting date (anchor + frequency), i.e. the period end -- today
-	for frequency 0."""
+	due every day); ``30`` means monthly -- only COMPLETED calendar months are
+	billed: the run on the 1st takes the previous month's DNs (posting date the
+	1st), and the run day's own DNs go to the next cycle; a blank frequency has no
+	cycle -> log + skip. Other frequencies are day counts with ``to_date`` today
+	(so no delivery is missed) and ``posting_date`` the frequency-meeting date --
+	today for frequency 0."""
 	freq_raw = so.get("custom_invoicing_frequency")
 	if freq_raw in (None, "") and so.get("custom_quotation"):
 		freq_raw = frappe.db.get_value(
@@ -191,12 +194,20 @@ def _invoicing_window(so):
 	freq_days = cint(freq_raw)
 
 	last_upto = so.get("custom_last_invoiced_upto")
-	anchor = getdate(last_upto or so.transaction_date)
 	today = getdate(nowdate())
+	from_date = getdate(add_days(last_upto, 1)) if last_upto else getdate(so.transaction_date)
+
+	if freq_days == 30:
+		# Monthly: window ends at the last day of the previous month. A month with
+		# no DNs leaves the cursor put, so the next completed month sweeps it up.
+		to_date = getdate(add_days(get_first_day(today), -1))
+		if from_date > to_date:
+			return None
+		return from_date, to_date, freq_days, getdate(add_days(to_date, 1))
+
+	anchor = getdate(last_upto or so.transaction_date)
 	if today < getdate(add_days(anchor, freq_days)):
 		return None
-
-	from_date = getdate(add_days(last_upto, 1)) if last_upto else getdate(so.transaction_date)
 	posting_date = today if freq_days == 0 else getdate(add_days(anchor, freq_days))
 	return from_date, today, freq_days, posting_date
 

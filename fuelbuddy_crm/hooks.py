@@ -360,10 +360,12 @@ doc_events = {
 }
 
 scheduler_events = {
-    "daily": [
-        # thin wrapper -> long queue, 2h timeout (default queue caps at 5 min)
-        "fuelbuddy_crm.auto_invoicing.enqueue_generate_sales_invoices",
-    ],
+    "cron": {
+        # 12:00 pm site time; thin wrapper -> long queue, 2h timeout
+        "0 12 * * *": [
+            "fuelbuddy_crm.auto_invoicing.enqueue_generate_sales_invoices",
+        ],
+    },
     "monthly": [
         "fuelbuddy_crm.sales_automation.generate_monthly_contract_sales_orders",
     ],
