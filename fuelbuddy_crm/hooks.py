@@ -351,6 +351,11 @@ doc_events = {
         # period already covered (IDEV-3000).
         "after_insert": "fuelbuddy_crm.auto_invoicing.update_so_last_invoiced",
         "on_submit": "fuelbuddy_crm.auto_invoicing.update_so_last_invoiced",
+        # Manually punched invoices get the same deal discount as scheduler ones;
+        # before_save runs after the live DN-qty-rewrite Server Script (validate),
+        # before_submit re-applies against the final submitted quantities.
+        "before_save": "fuelbuddy_crm.auto_invoicing.apply_manual_invoice_discount_save",
+        "before_submit": "fuelbuddy_crm.auto_invoicing.apply_manual_invoice_discount_submit",
     },
 }
 

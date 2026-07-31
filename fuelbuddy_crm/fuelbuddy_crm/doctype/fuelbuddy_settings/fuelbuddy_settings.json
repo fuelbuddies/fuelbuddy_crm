@@ -53,10 +53,10 @@
   },
   {
    "default": "Quotation",
-   "description": "Which document's Discount tab the auto-invoicing scheduler reads the discount formula from when generating Sales Invoices: the SO's linked Quotation (default) or the Opportunity behind it.",
+   "description": "Which document's Discount tab the discount formula is read from \u2014 for BOTH the auto-invoicing scheduler and manually punched Sales Invoices: the SO's linked Quotation (default) or the Opportunity behind it.",
    "fieldname": "auto_invoicing_discount_source",
    "fieldtype": "Select",
-   "label": "Auto Invoicing Discount Source",
+   "label": "Invoicing Discount Source",
    "options": "Quotation\nOpportunity"
   },
   {
