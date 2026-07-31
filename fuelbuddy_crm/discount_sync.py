@@ -151,15 +151,21 @@ def ensure_quotation_discount(doc, method=None):
 		return
 
 	src = frappe.get_doc("Discount", template)
-	dc = frappe.new_doc("Discount")
-	for field in _DISCOUNT_COPY_FIELDS:
-		dc.set(field, src.get(field))
+	if not src.get("quotation"):
+		# Backing Discount not tied to a Quotation yet -- adopt it in place instead of
+		# cloning, so the flow yields ONE Discount, not a template + a copy.
+		dc = src
+	else:
+		# Already belongs to another (superseded) Quotation -- clone so we don't steal it.
+		dc = frappe.new_doc("Discount")
+		for field in _DISCOUNT_COPY_FIELDS:
+			dc.set(field, src.get(field))
+		for row in src.slab_discount or []:
+			dc.append("slab_discount", {f: row.get(f) for f in _SLAB_COPY_FIELDS})
 	dc.quotation = doc.name
 	dc.party = doc.get("custom_opportunity_from") or src.get("party")
-	for row in src.slab_discount or []:
-		dc.append("slab_discount", {f: row.get(f) for f in _SLAB_COPY_FIELDS})
 	dc.flags.ignore_permissions = True
-	dc.insert()
+	dc.save()
 
 	if doc.get("custom_discount_type") != dc.name:
 		# db.set_value (not doc.save) -- this runs inside the Quotation's own

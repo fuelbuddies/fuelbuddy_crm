@@ -16,7 +16,13 @@
   "business_documents_section",
   "document_required",
   "wallet_section",
-  "enable_wallet"
+  "enable_wallet",
+  "sales_order_tools_tab",
+  "update_so_qty_button",
+  "so_tools_column",
+  "close_overdue_so_button",
+  "so_tools_config_section",
+  "so_close_max_range_days"
  ],
  "fields": [
   {
@@ -47,10 +53,10 @@
   },
   {
    "default": "Quotation",
-   "description": "Which document's Discount tab the auto-invoicing scheduler reads the discount formula from when generating Sales Invoices: the SO's linked Quotation (default) or the Opportunity behind it.",
+   "description": "Which document's Discount tab the discount formula is read from \u2014 for BOTH the auto-invoicing scheduler and manually punched Sales Invoices: the SO's linked Quotation (default) or the Opportunity behind it.",
    "fieldname": "auto_invoicing_discount_source",
    "fieldtype": "Select",
-   "label": "Auto Invoicing Discount Source",
+   "label": "Invoicing Discount Source",
    "options": "Quotation\nOpportunity"
   },
   {
@@ -88,13 +94,45 @@
    "fieldname": "document_required",
    "fieldtype": "Check",
    "label": "Document Required"
+  },
+  {
+   "fieldname": "sales_order_tools_tab",
+   "fieldtype": "Tab Break",
+   "label": "Sales Order Tools"
+  },
+  {
+   "description": "Increase the quantity on a single-item Sales Order (Draft or Submitted). Quantity can only be increased, never reduced. (DEV-5240)",
+   "fieldname": "update_so_qty_button",
+   "fieldtype": "Button",
+   "label": "Update Sales Order Quantity"
+  },
+  {
+   "fieldname": "so_tools_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Bulk-mark Overdue Sales Orders in a date range as Closed. Overdue = submitted, not fully delivered, delivery date in the past. (DEV-5241)",
+   "fieldname": "close_overdue_so_button",
+   "fieldtype": "Button",
+   "label": "Close Overdue Sales Orders"
+  },
+  {
+   "fieldname": "so_tools_config_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "366",
+   "description": "Maximum allowed From-To span for \"Close Overdue Sales Orders\", to avoid accidental mass updates.",
+   "fieldname": "so_close_max_range_days",
+   "fieldtype": "Int",
+   "label": "Max Close Date Range (Days)"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-07-15 13:00:00.000000",
+ "modified": "2026-07-27 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "Fuelbuddy CRM",
  "name": "Fuelbuddy Settings",

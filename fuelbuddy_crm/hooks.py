@@ -139,6 +139,11 @@ doctype_js = {
 # 	"ToDo": "custom_app.overrides.CustomToDo"
 # }
 
+# Discount <-> Quotation linked each other, so neither could be deleted first (deadlock).
+# Making Discount's outgoing links non-blocking makes it one-way: delete the Quotation
+# first, then the orphaned Discount.
+ignore_links_on_delete = ["Discount"]
+
 # Document Events
 # ---------------
 # Hook on document methods and events
@@ -346,14 +351,21 @@ doc_events = {
         # period already covered (IDEV-3000).
         "after_insert": "fuelbuddy_crm.auto_invoicing.update_so_last_invoiced",
         "on_submit": "fuelbuddy_crm.auto_invoicing.update_so_last_invoiced",
+        # Manually punched invoices get the same deal discount as scheduler ones;
+        # before_save runs after the live DN-qty-rewrite Server Script (validate),
+        # before_submit re-applies against the final submitted quantities.
+        "before_save": "fuelbuddy_crm.auto_invoicing.apply_manual_invoice_discount_save",
+        "before_submit": "fuelbuddy_crm.auto_invoicing.apply_manual_invoice_discount_submit",
     },
 }
 
 scheduler_events = {
-    "daily": [
-        # thin wrapper -> long queue, 2h timeout (default queue caps at 5 min)
-        "fuelbuddy_crm.auto_invoicing.enqueue_generate_sales_invoices",
-    ],
+    "cron": {
+        # 12:00 pm site time; thin wrapper -> long queue, 2h timeout
+        "0 12 * * *": [
+            "fuelbuddy_crm.auto_invoicing.enqueue_generate_sales_invoices",
+        ],
+    },
     "monthly": [
         "fuelbuddy_crm.sales_automation.generate_monthly_contract_sales_orders",
     ],
