@@ -118,7 +118,7 @@ def _invoice_sales_order(so_name, all_customers=False):
 	window = _invoicing_window(so)
 	if not window:
 		return
-	from_date, to_date, freq_days, posting_date = window
+	from_date, to_date, freq_days = window
 
 	dns = frappe.db.sql(
 		"""
@@ -163,23 +163,22 @@ def _invoice_sales_order(so_name, all_customers=False):
 		groups = [grouped[k] for k in sorted(grouped)]
 
 	for group in groups:
-		_make_draft_invoice(so, group, from_date, to_date, posting_date)
+		_make_draft_invoice(so, group, from_date, to_date)
 
 	# Period cursor that drives the next cycle's due-check and window start.
 	frappe.db.set_value("Sales Order", so.name, "custom_last_invoiced_upto", to_date)
 
 
 def _invoicing_window(so):
-	"""Return ``(from_date, to_date, freq_days, posting_date)`` for this SO's due
-	period, or None if not due / frequency unset.
+	"""Return ``(from_date, to_date, freq_days)`` for this SO's due period, or
+	None if not due / frequency unset.
 
 	Frequency is a value, not a truthiness: ``0`` is valid ("invoice per delivery",
 	due every day); ``30`` means monthly -- only COMPLETED calendar months are
-	billed: the run on the 1st takes the previous month's DNs (posting date the
-	1st), and the run day's own DNs go to the next cycle; a blank frequency has no
-	cycle -> log + skip. Other frequencies are day counts with ``to_date`` today
-	(so no delivery is missed) and ``posting_date`` the frequency-meeting date --
-	today for frequency 0."""
+	billed: the run on the 1st takes the previous month's DNs, and the run day's
+	own DNs go to the next cycle; a blank frequency has no cycle -> log + skip.
+	Other frequencies are day counts with ``to_date`` today (so no delivery is
+	missed)."""
 	freq_raw = so.get("custom_invoicing_frequency")
 	if freq_raw in (None, "") and so.get("custom_quotation"):
 		freq_raw = frappe.db.get_value(
@@ -203,16 +202,15 @@ def _invoicing_window(so):
 		to_date = getdate(add_days(get_first_day(today), -1))
 		if from_date > to_date:
 			return None
-		return from_date, to_date, freq_days, getdate(add_days(to_date, 1))
+		return from_date, to_date, freq_days
 
 	anchor = getdate(last_upto or so.transaction_date)
 	if today < getdate(add_days(anchor, freq_days)):
 		return None
-	posting_date = today if freq_days == 0 else getdate(add_days(anchor, freq_days))
-	return from_date, today, freq_days, posting_date
+	return from_date, today, freq_days
 
 
-def _make_draft_invoice(so, dn_items, from_date, to_date, posting_date):
+def _make_draft_invoice(so, dn_items, from_date, to_date):
 	"""Create ONE Draft Sales Invoice for a group of Delivery Note item rows: one
 	row per SO line, qty = the group's delivered DN quantities. No DN<->invoice
 	link is stored; ``custom_dn_from_date`` / ``custom_dn_to_date`` record the
@@ -242,7 +240,7 @@ def _make_draft_invoice(so, dn_items, from_date, to_date, posting_date):
 		return None
 
 	si.set_posting_time = 1
-	si.posting_date = posting_date
+	si.posting_date = to_date
 
 	dn_names = sorted({d.name for d in dn_items})
 	si.custom_dn_number = ", ".join(dn_names)[:140]
