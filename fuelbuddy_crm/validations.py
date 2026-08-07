@@ -15,7 +15,7 @@ Server Scripts):
 
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate
+from frappe.utils import flt, getdate, nowdate
 
 # Discount-tab header value fields (identical names on Opportunity and Quotation) and a
 # human label for each, used in the validation message.
@@ -191,25 +191,28 @@ def apply_opportunity_calculations(doc, method=None):
 _EX_VAT_PRICE_LIST = "Selling Price List Excluding VAT"
 
 
-def _ex_vat_rate(item_code, uom):
-	"""Ex-VAT price-list rate for the item, converted to ``uom``.
+def _ex_vat_rate(item_code, uom, transaction_date=None):
+	"""Ex-VAT price-list rate for the item valid on ``transaction_date`` (default
+	today), converted to ``uom``.
 
-	Mirrors the client's fetch_ex_vat_rate/apply_rate_for_uom: newest Item Price on the
-	ex-VAT price list in the item's STOCK uom, times the same conversion factor Sales
-	Order Item uses (erpnext get_conversion_factor). Returns 0 (with a warning, like the
-	client's alert) when the item has no ex-VAT price."""
-	from erpnext.stock.get_item_details import get_conversion_factor
+	Item Price rows on this site are month-scoped (valid_from/valid_upto), so
+	resolution goes through erpnext's get_item_price: validity window filtered,
+	newest valid_from wins (IDEV-3066 — "creation desc" let future/backfilled rows
+	shadow the rate actually in force). Price list is maintained in the item's STOCK
+	uom; the result is multiplied by the same conversion factor Sales Order Item
+	uses (get_conversion_factor). Returns 0 (with a warning, like the client's
+	alert) when no valid ex-VAT price exists."""
+	from erpnext.stock.get_item_details import get_conversion_factor, get_item_price
 
-	base_rate = frappe.db.get_value(
-		"Item Price",
-		{
-			"item_code": item_code,
-			"price_list": _EX_VAT_PRICE_LIST,
-			"uom": frappe.db.get_value("Item", item_code, "stock_uom"),
-		},
-		"price_list_rate",
-		order_by="creation desc",
+	rows = get_item_price(
+		frappe._dict(
+			price_list=_EX_VAT_PRICE_LIST,
+			uom=frappe.db.get_value("Item", item_code, "stock_uom"),
+			transaction_date=transaction_date or nowdate(),
+		),
+		item_code,
 	)
+	base_rate = rows[0][1] if rows else 0
 	if not base_rate:
 		frappe.msgprint(
 			_("No '{0}' price found for {1}; rate set to 0.").format(_EX_VAT_PRICE_LIST, item_code),
@@ -218,6 +221,13 @@ def _ex_vat_rate(item_code, uom):
 		return 0
 	cf = flt(get_conversion_factor(item_code, uom).get("conversion_factor")) or 1
 	return flt(base_rate) * cf
+
+
+@frappe.whitelist()
+def get_ex_vat_rate(item_code, uom, transaction_date=None):
+	"""Client-callable ex-VAT rate lookup, so the "Price List Rate In ..." Client
+	Scripts share the server's validity-aware resolution (IDEV-3066)."""
+	return _ex_vat_rate(item_code, uom, transaction_date)
 
 
 def default_discount_upto_date(doc, method=None):

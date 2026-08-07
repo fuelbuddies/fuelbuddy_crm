@@ -207,7 +207,7 @@ def create_quotation_from_opportunity(opportunity):
 				"qty": qty,
 				"uom": uom,
 				"rate": base_rate,
-				"price_list_rate": _ex_vat_rate(item_code, uom),
+				"price_list_rate": _ex_vat_rate(item_code, uom, quotation.transaction_date),
 				"prevdoc_doctype": "Opportunity",
 				"prevdoc_docname": doc.name,
 			},
