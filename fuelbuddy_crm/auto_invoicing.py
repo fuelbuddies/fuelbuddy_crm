@@ -242,8 +242,6 @@ def _make_draft_invoice(so, dn_items, from_date, to_date):
 	si.set_posting_time = 1
 	si.posting_date = to_date
 
-	dn_names = sorted({d.name for d in dn_items})
-	si.custom_dn_number = ", ".join(dn_names)[:140]
 	if (so.get("custom_invoicing_type") or "").strip() == "Split Invoice":
 		si.custom_department = dn_items[0].custom_department
 		si.custom_location = dn_items[0].custom_billing_location
