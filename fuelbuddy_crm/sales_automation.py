@@ -5,6 +5,7 @@ import frappe
 from frappe.utils import add_months, flt, get_first_day, get_last_day, getdate, nowdate
 
 from fuelbuddy_crm.quotation_link import _payment_terms_template_for
+from fuelbuddy_crm.validations import _ex_vat_rate
 
 CONTRACT_SO_QUEUE = "long"
 
@@ -195,6 +196,20 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 		)
 		return None
 
+	# Auto-creation is for Long-term Contracts only (Fixed Quantity deals get their
+	# SOs manually via the standard "Create Sales Order" flow, which never routes
+	# through here). Deal type falls back to the Opportunity's, same as the SO field.
+	deal_type = qdoc.get("custom_deal_type") or frappe.db.get_value(
+		"Opportunity", qdoc.custom_opportunity_from, "custom_deal_type"
+	)
+	if deal_type != "Long-term Contract":
+		_log_so(
+			"skipped: not a Long-term Contract",
+			quotation=quotation,
+			detail=f"custom_deal_type={deal_type}",
+		)
+		return None
+
 	# Stop once the contract has expired (no SO for months past expiry).
 	expiry = qdoc.get("custom_contract_expiry")
 	if expiry and getdate(expiry) < month_start:
@@ -300,6 +315,30 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 	# their own month and keep today's date.
 	so.transaction_date = nowdate() if template else (qdoc.transaction_date or nowdate())
 	so.delivery_date = month_end
+
+	# IDEV-3066: the quotation rate is always ignored -- re-price every line from
+	# Item Price as of THIS SO's date (the mapper copies the Quotation-era rate and
+	# the monthly clone freezes month-1's rate forever). Only Fixed Rate contracts
+	# keep the negotiated rate (same gate as discount_sync). A missing Item Price
+	# never blocks the SO: keep the prior rate and leave an Error Log entry so a
+	# stale price list is visible, not silent.
+	if qdoc.get("custom_pricing_model") != "Fixed Rate":
+		for row in so.items:
+			fresh = _ex_vat_rate(row.item_code, row.uom, so.transaction_date)
+			if fresh:
+				row.price_list_rate = fresh
+				row.rate = fresh
+				# else calculate_taxes_and_totals re-derives rate from the stale
+				# mapped discount against the new price_list_rate
+				row.discount_percentage = 0
+				row.discount_amount = 0
+				row.margin_rate_or_amount = 0
+			else:
+				_log_so(
+					"no Item Price valid for SO date; kept prior rate",
+					quotation=quotation,
+					detail=f"item={row.item_code}, date={so.transaction_date}",
+				)
 
 	# Mirror the Quotation's Discount tab onto the (read-only) Sales Order Discount
 	# tab. The slab table is reset first so a cloned SO doesn't accumulate rows.
