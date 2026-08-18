@@ -196,6 +196,20 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 		)
 		return None
 
+	# Auto-creation is for Long-term Contracts only (Fixed Quantity deals get their
+	# SOs manually via the standard "Create Sales Order" flow, which never routes
+	# through here). Deal type falls back to the Opportunity's, same as the SO field.
+	deal_type = qdoc.get("custom_deal_type") or frappe.db.get_value(
+		"Opportunity", qdoc.custom_opportunity_from, "custom_deal_type"
+	)
+	if deal_type != "Long-term Contract":
+		_log_so(
+			"skipped: not a Long-term Contract",
+			quotation=quotation,
+			detail=f"custom_deal_type={deal_type}",
+		)
+		return None
+
 	# Stop once the contract has expired (no SO for months past expiry).
 	expiry = qdoc.get("custom_contract_expiry")
 	if expiry and getdate(expiry) < month_start:
