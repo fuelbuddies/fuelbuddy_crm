@@ -271,7 +271,8 @@ override_doctype_dashboards = {
 _CRM_DOCTYPES = ["Opportunity", "Quotation", "Lead", "Customer"]
 # Custom Fields and Property Setters are also owned on Sales Order (the contract SO
 # carries the CRM commercial fields and the form layout / naming-series for it).
-_CUSTOM_FIELD_DOCTYPES = _CRM_DOCTYPES + ["Sales Order"]
+# Sales Invoice Item carries only the read-only Force Majeure Pricing stamp (IDEV-3129).
+_CUSTOM_FIELD_DOCTYPES = _CRM_DOCTYPES + ["Sales Order", "Sales Invoice Item"]
 # Property Setters also cover "Opportunity Item": its rate/qty are derived from the
 # Opportunity Value section and are made read-only there (BUG-010).
 _PROPERTY_SETTER_DOCTYPES = _CUSTOM_FIELD_DOCTYPES + ["Opportunity Item"]
@@ -359,11 +360,19 @@ doc_events = {
         "on_cancel": "fuelbuddy_crm.finance_dossier.sync_source_reference",
     },
     "Sales Invoice": {
+        # Manual period invoice: rebuild the lines from the DN date range, split per
+        # delivery for Force Majeure (IDEV-3129). Replaces the "Auto Pick of DN at
+        # Sales Invoice and Update of Qty" Server Script (removed by patch).
+        "before_validate": "fuelbuddy_crm.auto_invoicing.rebuild_lines_from_dn_range",
         # Any invoice (manual or auto, even a Draft) advances the SO's
         # last-invoiced date so the auto-invoicing scheduler never re-bills a
         # period already covered (IDEV-3000).
         "after_insert": "fuelbuddy_crm.auto_invoicing.update_so_last_invoiced",
         "on_submit": "fuelbuddy_crm.auto_invoicing.update_so_last_invoiced",
+        # IDEV-3129: Force Majeure is decided per delivery and lands on the invoice.
+        # Manual invoices are re-rated here per DN-linked line; auto-invoicing splits
+        # its own lines in _make_draft_invoice.
+        "validate": "fuelbuddy_crm.force_majeure.apply_force_majeure",
         # Manually punched invoices get the same deal discount as scheduler ones;
         # before_save runs after the live DN-qty-rewrite Server Script (validate),
         # before_submit re-applies against the final submitted quantities.

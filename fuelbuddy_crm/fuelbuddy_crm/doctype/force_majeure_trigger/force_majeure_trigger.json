@@ -1,0 +1,123 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-09-14 12:00:00.000000",
+ "description": "One declared Force Majeure event (IDEV-3129). SUBMITTING a Trigger declares the event live for the dates it covers; CANCELLING it ends the event for every customer at once. Pricing is only overridden while a submitted Trigger covers the transaction date AND \"Enable Force Majeure\" is on in Fuelbuddy Settings AND the customer is flagged AND an Approved Force Majeure Pricing covers the date.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "global_start_date",
+  "column_break_window",
+  "global_end_date",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "description": "First transaction date this event covers (inclusive).",
+   "fieldname": "global_start_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "FM Period Start",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_window",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Last transaction date this event covers (inclusive). Leave blank for an open-ended event that runs until this Trigger is cancelled.",
+   "fieldname": "global_end_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "FM Period End"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Force Majeure Trigger",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-16 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Fuelbuddy CRM",
+ "name": "Force Majeure Trigger",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Force Majeure Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Force Majeure User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User"
+  },
+  {
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User"
+  },
+  {
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Stock User"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "is_submittable": 1,
+ "autoname": "FM-TRG-.#####"
+}

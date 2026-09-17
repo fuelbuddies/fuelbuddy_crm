@@ -17,6 +17,8 @@
   "document_required",
   "wallet_section",
   "enable_wallet",
+  "force_majeure_section",
+  "enable_force_majeure",
   "sales_order_tools_tab",
   "update_so_qty_button",
   "so_tools_column",
@@ -84,6 +86,18 @@
    "label": "Enable Wallet"
   },
   {
+   "fieldname": "force_majeure_section",
+   "fieldtype": "Section Break",
+   "label": "Force Majeure"
+  },
+  {
+   "default": "0",
+   "description": "Master switch for Force Majeure pricing (IDEV-3129). When enabled, a customer flagged \"Force Majeure Active\" with an Approved Force Majeure Pricing doc is billed the interim rate on Sales Order, Delivery Note and Sales Invoice while a submitted Force Majeure Trigger covers the transaction date. When disabled, no override is applied anywhere -- every Trigger and Pricing doc is simply inert.",
+   "fieldname": "enable_force_majeure",
+   "fieldtype": "Check",
+   "label": "Enable Force Majeure"
+  },
+  {
    "fieldname": "business_documents_section",
    "fieldtype": "Section Break",
    "label": "Business Documents"
@@ -132,7 +146,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-07-27 16:00:00.000000",
+ "modified": "2026-09-16 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Fuelbuddy CRM",
  "name": "Fuelbuddy Settings",
