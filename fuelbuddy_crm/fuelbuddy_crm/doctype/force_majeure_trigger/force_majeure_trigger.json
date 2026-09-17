@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 0,
  "creation": "2026-09-14 12:00:00.000000",
- "description": "One declared Force Majeure event (IDEV-3129). SUBMITTING a Trigger declares the event live for the dates it covers; CANCELLING it ends the event for every customer at once. Pricing is only overridden while a submitted Trigger covers the transaction date AND \"Enable Force Majeure\" is on in Fuelbuddy Settings AND the customer is flagged AND an Approved Force Majeure Pricing covers the date.",
+ "description": "One declared Force Majeure event (IDEV-3129). SUBMITTING a Trigger declares the event live for the dates it covers; CANCELLING it ends the event for every customer at once. Pricing is only overridden while a submitted Trigger covers the transaction date AND \"Enable Force Majeure\" is on in Fuelbuddy Settings AND an Approved Force Majeure Pricing for the customer covers the date.",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [

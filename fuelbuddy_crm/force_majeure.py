@@ -14,8 +14,9 @@ either and the caller runs its normal flow untouched:
 
   global    ``Fuelbuddy Settings.enable_force_majeure`` is on, and at least one
             ``Force Majeure Trigger`` is submitted;
-  customer  ``Customer.custom_force_majeure_active`` is on, and the customer has
-            at least one APPROVED (docstatus 1) ``Force Majeure Pricing``.
+  customer  the customer has at least one APPROVED (docstatus 1)
+            ``Force Majeure Pricing``. There is no per-customer flag: an approved
+            Pricing IS the opt-in, cancelling it is the opt-out.
 
 Past both, each delivery is decided on ITS OWN posting date: a submitted Trigger
 AND an approved Pricing must both cover that date, and the Pricing must carry a
@@ -53,7 +54,7 @@ def fm_resolver(customer):
 	)
 	if not triggers:
 		return None
-	if not customer or not frappe.db.get_value("Customer", customer, "custom_force_majeure_active"):
+	if not customer:
 		return None
 	pricings = frappe.get_all(
 		"Force Majeure Pricing",
