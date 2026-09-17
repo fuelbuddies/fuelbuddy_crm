@@ -93,9 +93,9 @@ def force_line(row, rate, pricing_name):
 
 	Only ``rate`` changes: ``price_list_rate`` keeps the real catalog price so the
 	line reads "list 4.10 -> billed 3.37", exactly like a deal-discount line. The
-	discount fields are zeroed because ERPNext re-derives ``rate`` as list minus
-	discount whenever a pricing rule is in play, and because the contract discount
-	must not apply on top of the agreed price."""
+	discount fields are cleared here so no contract discount rides on top; ERPNext's
+	totals pass then shows the list-to-rate gap in ``discount_amount`` on its own,
+	as it does for any line rated below list -- display only."""
 	row.discount_percentage = 0
 	row.discount_amount = 0
 	row.margin_rate_or_amount = 0
