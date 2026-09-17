@@ -91,11 +91,11 @@ def fm_rate(pricing, item_code):
 def force_line(row, rate, pricing_name):
 	"""Bill one invoice line at the Force Majeure rate and stamp it.
 
-	``price_list_rate`` is set to the same figure and every discount field zeroed:
-	ERPNext's totals pass re-derives ``rate`` as list minus discount, so writing
-	only ``rate`` would be clobbered, and leaving the contract discount in place
-	would discount the agreed price a second time."""
-	row.price_list_rate = rate
+	Only ``rate`` changes: ``price_list_rate`` keeps the real catalog price so the
+	line reads "list 4.10 -> billed 3.37", exactly like a deal-discount line. The
+	discount fields are zeroed because ERPNext re-derives ``rate`` as list minus
+	discount whenever a pricing rule is in play, and because the contract discount
+	must not apply on top of the agreed price."""
 	row.discount_percentage = 0
 	row.discount_amount = 0
 	row.margin_rate_or_amount = 0
