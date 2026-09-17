@@ -27,19 +27,18 @@ class ForceMajeurePricing(Document):
 		already billed under it forbid anyway. Frappe's own update-after-submit check
 		rejects every other field.
 
-		Rules: only a Force Majeure Manager may make the change, and the new end can
-		never fall before the latest invoice already connected to this Pricing, so a
-		billed rate is never retroactively un-agreed. Extending is allowed subject to
-		the same overlap guard as a new Pricing. Frappe does not run ``validate`` on
-		this path, so the window and overlap checks are repeated here."""
+		Who may: Frappe requires SUBMIT permission to update a submitted document
+		(``Document._save`` -> ``check_permission("submit")``), and only System Manager
+		and Force Majeure Manager hold it here -- a Force Majeure User is refused before
+		this method runs, so there is no role check of our own.
+
+		Rule: the new end can never fall before the latest invoice already connected
+		to this Pricing, so a billed rate is never retroactively un-agreed. Extending is
+		allowed subject to the same overlap guard as a new Pricing. Frappe does not run
+		``validate`` on this path, so the window and overlap checks are repeated here."""
 		before = self.get_doc_before_save()
 		if not before or getdate(before.effective_end) == getdate(self.effective_end):
 			return
-		if not set(frappe.get_roles()) & {"Force Majeure Manager", "System Manager"}:
-			frappe.throw(
-				_("Only a Force Majeure Manager can change the Effective End of an approved Force Majeure Pricing."),
-				frappe.PermissionError,
-			)
 		self._validate_window()
 		self._validate_no_overlap()
 		billed_upto = frappe.db.sql(

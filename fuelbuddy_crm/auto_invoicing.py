@@ -278,7 +278,7 @@ def _make_draft_invoice(so, dn_items, from_date, to_date):
 	return si.name
 
 
-def _split_lines(si, customer, dn_rows, keep_empty=False):
+def _split_lines(si, customer, dn_rows):
 	"""Rebuild ``si.items`` from per-Delivery-Note rows: one line per SO line AND per
 	Force Majeure decision on each DN's own posting date (IDEV-3129).
 
@@ -290,10 +290,10 @@ def _split_lines(si, customer, dn_rows, keep_empty=False):
 	and the invoice is built exactly as it always was.
 
 	``dn_rows`` need ``so_detail``, ``item_code``, ``qty`` and ``posting_date``. SO
-	lines with no rows are dropped, or kept at qty 0 with ``keep_empty`` (the manual
-	path zeroes them so the user notices). Returns the buckets for the caller's
-	messages. Shared by the scheduler and the manual date-range rollup so the two
-	paths cannot drift apart."""
+	lines with no rows are dropped (callers decide beforehand whether that is an
+	error); lines not linked to an SO at all are kept as they are. Returns the
+	buckets for the caller's messages. Shared by the scheduler and the manual
+	date-range rollup so the two paths cannot drift apart."""
 	resolve = fm_resolver(customer)
 	buckets = {}  # (so_detail, pricing_name | None) -> qty, in delivery order
 	fm_rates = {}  # pricing_name -> {item_code: rate}
@@ -309,17 +309,17 @@ def _split_lines(si, customer, dn_rows, keep_empty=False):
 	rows = list(si.items)
 	si.set("items", [])
 	for row in rows:
+		if not row.so_detail:
+			si.append("items", row.as_dict(no_default_fields=True))  # free line: untouched
+			continue
 		if row.so_detail not in delivered:
-			if keep_empty:
-				line = si.append("items", row.as_dict(no_default_fields=True))
-				line.qty = line.stock_qty = 0
-				line.amount = line.base_amount = None
 			continue
 		# Outside-period quantity first, then each FM window in delivery order.
 		keys = sorted((k for k in buckets if k[0] == row.so_detail), key=lambda k: k[1] is not None)
-		for _, pricing_name in keys:
+		for key in keys:
+			pricing_name = key[1]
 			line = si.append("items", row.as_dict(no_default_fields=True))
-			line.qty = buckets[(row.so_detail, pricing_name)]
+			line.qty = buckets[key]
 			line.stock_qty = flt(line.qty) * (flt(line.conversion_factor) or 1)
 			line.amount = line.base_amount = None
 			if pricing_name:
@@ -333,7 +333,9 @@ def rebuild_lines_from_dn_range(doc, method=None):
 	contract -- new invoices only; ``custom_dn_from_date`` / ``custom_dn_to_date``
 	define the period; only ``To Bill`` / ``Partly Billed`` DNs count, and a Partly
 	Billed row contributes just its unbilled fraction ``qty * (amount - billed_amt)
-	/ amount``; SO lines with no delivery in range are zeroed so the user notices.
+	/ amount``; an SO line with no delivery in range refuses the save (the script
+	zeroed it, which ERPNext then refused as a zero quantity -- same outcome, one
+	message instead of two).
 
 	What changes: the rollup is per delivery, through ``_split_lines``, so a manual
 	invoice honours Force Majeure exactly like a scheduler one (IDEV-3129). Runs
@@ -370,31 +372,27 @@ def rebuild_lines_from_dn_range(doc, method=None):
 		as_dict=True,
 	)
 	dn_rows = [d for d in dn_rows if flt(d.qty) > 0]  # fully billed rows add nothing
-	buckets = _split_lines(doc, doc.customer, dn_rows, keep_empty=True)
-
 	dns_for = {}
 	for d in dn_rows:
 		dns_for.setdefault(d.so_detail, set()).add(d.dn)
+	if missing := [r.item_code for r in doc.items if r.get("so_detail") in so_details and r.so_detail not in dns_for]:
+		frappe.throw(
+			_("No Delivery Notes found for {0} between {1} and {2}").format(
+				", ".join(missing), from_date, to_date
+			)
+		)
+	buckets = _split_lines(doc, doc.customer, dn_rows)
 	for line in doc.items:
-		if line.so_detail in dns_for:
-			if not line.get("custom_force_majeure_pricing"):
-				frappe.msgprint(
-					_("{0}: Qty {1} from DN {2} (between {3} and {4})").format(
-						line.item_code,
-						sum(q for k, q in buckets.items() if k[0] == line.so_detail),
-						", ".join(sorted(dns_for[line.so_detail])),
-						from_date,
-						to_date,
-					),
-					alert=True,
-				)
-		elif line.get("so_detail"):
+		if line.get("so_detail") and not line.get("custom_force_majeure_pricing"):
 			frappe.msgprint(
-				_("{0}: No Delivery Notes found between {1} and {2}").format(
-					line.item_code, from_date, to_date
+				_("{0}: Qty {1} from DN {2} (between {3} and {4})").format(
+					line.item_code,
+					sum(q for k, q in buckets.items() if k[0] == line.so_detail),
+					", ".join(sorted(dns_for[line.so_detail])),
+					from_date,
+					to_date,
 				),
 				alert=True,
-				indicator="orange",
 			)
 
 

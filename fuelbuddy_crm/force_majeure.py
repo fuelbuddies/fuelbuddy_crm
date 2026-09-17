@@ -54,8 +54,6 @@ def fm_resolver(customer):
 	)
 	if not triggers:
 		return None
-	if not customer:
-		return None
 	pricings = frappe.get_all(
 		"Force Majeure Pricing",
 		filters={"customer": customer, "docstatus": 1},
