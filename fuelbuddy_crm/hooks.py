@@ -334,8 +334,21 @@ doc_events = {
         # (versioned amendments reuse it), so enforce "one live DN per invoiced
         # item" in code; and amendment versioning — custom_version is no_copy,
         # so a UI amend resets it to "1" unless recomputed as parent+1.
-        "validate": "fuelbuddy_crm.dn_validation.enforce_single_active_dn",
+        # enforce_so_headroom is the authoritative over-delivery gate: ERPNext's own
+        # Stock Settings "over_delivery_receipt_allowance" is 1000 (i.e. 1000% tolerated),
+        # and the allocator's headroom check is client-side and racy.
+        "validate": [
+            "fuelbuddy_crm.dn_validation.enforce_single_active_dn",
+            "fuelbuddy_crm.dn_validation.enforce_so_headroom",
+        ],
         "before_insert": "fuelbuddy_crm.dn_versioning.set_amended_version",
+        # Keep Sales Order Item.custom_delivery_note_qty_in_draft (which the allocator
+        # subtracts from the SO headroom) in step with the live draft DNs -- including
+        # RELEASING it on cancel/delete, which the old Server Script never did.
+        "on_update": "fuelbuddy_crm.dn_validation.sync_draft_reservation",
+        "on_submit": "fuelbuddy_crm.dn_validation.sync_draft_reservation",
+        "on_cancel": "fuelbuddy_crm.dn_validation.sync_draft_reservation",
+        "on_trash": "fuelbuddy_crm.dn_validation.sync_draft_reservation",
     },
     "Finance Dossier": {
         # Keep Quotation.custom_finance_dossier pointing at the current dossier

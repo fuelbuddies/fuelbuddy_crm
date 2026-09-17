@@ -7,3 +7,5 @@
 fuelbuddy_crm.patches.remove_quotation_creation_scripts
 fuelbuddy_crm.patches.remove_crm_server_scripts
 fuelbuddy_crm.patches.backfill_discount_docs
+fuelbuddy_crm.patches.remove_quotation_address_filter_script
+fuelbuddy_crm.patches.move_draft_dn_reservation_to_app

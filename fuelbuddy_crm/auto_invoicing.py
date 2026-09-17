@@ -241,6 +241,13 @@ def _make_draft_invoice(so, dn_items, from_date, to_date):
 
 	si.set_posting_time = 1
 	si.posting_date = to_date
+	# The mapper computed due_date off today's date; posting_date is now backdated
+	# to the window end, so recompute due date + schedule off it or validate throws
+	# "Due / Reference Date cannot be after ..." for every backdated invoice.
+	from erpnext.accounts.party import get_due_date
+
+	si.due_date = get_due_date(to_date, "Customer", si.customer, si.company)
+	si.set("payment_schedule", [])
 
 	if (so.get("custom_invoicing_type") or "").strip() == "Split Invoice":
 		si.custom_department = dn_items[0].custom_department

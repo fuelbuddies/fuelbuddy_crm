@@ -274,7 +274,10 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 			)
 			return None
 
-		so = frappe.copy_doc(frappe.get_doc("Sales Order", template[0]))
+		# ignore_no_copy=False: copy_doc DEFAULTS to copying no_copy fields, which would
+		# hand the new month the template's per_delivered / per_billed / status /
+		# advance_paid and the rows' delivered_qty / billed_amt / picked_qty.
+		so = frappe.copy_doc(frappe.get_doc("Sales Order", template[0]), ignore_no_copy=False)
 		kept = []
 		for row in so.items:
 			# each monthly SO is a standalone order; don't re-consume the Quotation's
@@ -282,6 +285,10 @@ def _create_contract_month_so(quotation, target_date=None, set_stage=False):
 			row.prevdoc_docname = None
 			row.prevdoc_doctype = None
 			row.quotation_item = None
+			# custom_delivery_note_qty_in_draft is a Custom Field with no_copy = 0, so
+			# ignore_no_copy above does NOT clear it -- a copied draft reservation would
+			# permanently shrink the new month's headroom (see dn_validation).
+			row.custom_delivery_note_qty_in_draft = 0
 			new_qty = flt(delivered.get(row.item_code, 0)) * (1 + CONTRACT_QTY_GROWTH)
 			if new_qty > 0:
 				row.qty = new_qty
