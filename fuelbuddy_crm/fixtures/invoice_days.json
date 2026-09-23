@@ -1,0 +1,44 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Invoice Days",
+  "invoice_days": 7,
+  "modified": "2025-09-18 16:32:17.102435",
+  "name": "7"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Invoice Days",
+  "invoice_days": 15,
+  "modified": "2025-09-18 16:32:36.053670",
+  "name": "15"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Invoice Days",
+  "invoice_days": 60,
+  "modified": "2025-09-18 16:32:49.305107",
+  "name": "60"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Invoice Days",
+  "invoice_days": 45,
+  "modified": "2025-09-18 16:33:07.094293",
+  "name": "45"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Invoice Days",
+  "invoice_days": 1,
+  "modified": "2024-08-23 14:32:23.211724",
+  "name": "1"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Invoice Days",
+  "invoice_days": 30,
+  "modified": "2024-08-29 15:29:28.304827",
+  "name": "30"
+ }
+]

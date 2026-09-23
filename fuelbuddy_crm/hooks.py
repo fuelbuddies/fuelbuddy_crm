@@ -277,6 +277,11 @@ _CUSTOM_FIELD_DOCTYPES = _CRM_DOCTYPES + ["Sales Order", "Sales Invoice Item"]
 # Opportunity Value section and are made read-only there (BUG-010).
 _PROPERTY_SETTER_DOCTYPES = _CUSTOM_FIELD_DOCTYPES + ["Opportunity Item"]
 fixtures = [
+    # lookup rows for the app's own Link targets; a fresh site has none otherwise
+    "Deal Type",
+    "Invoice Days",
+    "Invoice Type",
+    "Threshold Days",
     {"dt": "Custom Field", "filters": [["dt", "in", _CUSTOM_FIELD_DOCTYPES]]},
     {"dt": "Property Setter", "filters": [["doc_type", "in", _PROPERTY_SETTER_DOCTYPES]]},
     {"dt": "Client Script", "filters": [["dt", "in", _CRM_DOCTYPES]]},

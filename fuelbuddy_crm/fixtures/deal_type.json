@@ -1,0 +1,16 @@
+[
+ {
+  "deal_type": "Long-term Contract",
+  "docstatus": 0,
+  "doctype": "Deal Type",
+  "modified": "2026-07-06 08:07:23.586800",
+  "name": "Long-term Contract"
+ },
+ {
+  "deal_type": "Fixed Quantity",
+  "docstatus": 0,
+  "doctype": "Deal Type",
+  "modified": "2026-07-02 12:00:25.352221",
+  "name": "Fixed Quantity"
+ }
+]

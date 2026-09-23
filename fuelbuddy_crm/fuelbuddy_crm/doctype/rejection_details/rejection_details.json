@@ -1,0 +1,50 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-03-11 18:45:19.990065",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "rejected_field",
+  "reason"
+ ],
+ "fields": [
+  {
+   "fieldname": "rejected_field",
+   "fieldtype": "Select",
+   "in_filter": 1,
+   "in_global_search": 1,
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
+   "label": "Rejected Field",
+   "options": "\nVAT Number\nVAT Certificate\nKYC\nCredit Agreement\nPayment Agreement\nTrade Licence Number\nTrade Licence Copy"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Text Editor",
+   "in_filter": 1,
+   "in_global_search": 1,
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
+   "label": "Reason"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-03-11 18:47:14.812098",
+ "modified_by": "shubhankar.srivastava@fuelbuddy.in",
+ "module": "Fuelbuddy CRM",
+ "name": "Rejection Details",
+ "owner": "shubhankar.srivastava@fuelbuddy.in",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

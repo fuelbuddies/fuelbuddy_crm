@@ -1,0 +1,16 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Invoice Type",
+  "invoice_type": "Split Invoice",
+  "modified": "2026-07-23 13:00:09.769916",
+  "name": "Split Invoice"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Invoice Type",
+  "invoice_type": "Single Invoice",
+  "modified": "2026-07-23 13:00:00.257649",
+  "name": "Single Invoice"
+ }
+]

@@ -1,0 +1,376 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-03-11 19:12:28.338315",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_ciit",
+  "opportunity",
+  "address",
+  "reviewer",
+  "amended_from",
+  "column_break_nmbl",
+  "product",
+  "customer",
+  "reviewed_on",
+  "reason_of_rejection",
+  "basic_checks_section",
+  "expected_number_of_vehiclesday",
+  "expected_number_of_vehiclesday_attachment",
+  "expected_avg_fill_per_vehicle",
+  "expected_avg_fill_per_vehicle_attachment",
+  "duration_at_customer_location",
+  "duration_at_customer_location_attachment",
+  "timezone_of_filling_activity",
+  "timezone_of_filling_activity_attachment",
+  "fueling_orientation",
+  "fueling_orientation_attachment",
+  "parking_surface_hard_sand",
+  "parking_surface_hard_sand_attachment",
+  "parking_on_interlocked_surface",
+  "parking_on_interlocked_surface_attachment",
+  "lighting_conditions",
+  "people_movement",
+  "location_of_fueling",
+  "column_break_gdyq",
+  "activity_during_fueling",
+  "hot_works_on_site",
+  "chemicalwaste_storage_nearby",
+  "open_ductsdrains_nearby_petrol",
+  "electrical_risks_nearby",
+  "fire_evacuation_blockage",
+  "fire_response_equipment_nearby",
+  "work_at_height_required",
+  "comments",
+  "overall_status",
+  "checklist_section",
+  "road_condition_to_the_client_location",
+  "5m_distance_from_the_building",
+  "no_electrical_connections_or_cables",
+  "column_break_gymz",
+  "no_smoking_area_nearby_filling_point",
+  "no_traffic_or_pedestrian_hazards",
+  "dedicated_parkingfueling_space",
+  "ample_light_and_ground_conditions"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_ciit",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "opportunity",
+   "fieldtype": "Link",
+   "in_filter": 1,
+   "in_global_search": 1,
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
+   "label": "Opportunity",
+   "options": "Opportunity",
+   "reqd": 1
+  },
+  {
+   "fieldname": "address",
+   "fieldtype": "Link",
+   "in_filter": 1,
+   "in_global_search": 1,
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
+   "label": "Address",
+   "options": "Address",
+   "reqd": 1
+  },
+  {
+   "default": "__user",
+   "fieldname": "reviewer",
+   "fieldtype": "Link",
+   "label": "Reviewer",
+   "options": "User"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "HSE Inspection",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_nmbl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "in_filter": 1,
+   "in_global_search": 1,
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
+   "label": "Product",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "opportunity.customer_name",
+   "fieldname": "customer",
+   "fieldtype": "Data",
+   "label": "Customer"
+  },
+  {
+   "fieldname": "reviewed_on",
+   "fieldtype": "Datetime",
+   "label": "Reviewed On"
+  },
+  {
+   "fieldname": "reason_of_rejection",
+   "fieldtype": "Small Text",
+   "label": "Reason of Rejection"
+  },
+  {
+   "fieldname": "basic_checks_section",
+   "fieldtype": "Section Break",
+   "label": "Basic Checks"
+  },
+  {
+   "fieldname": "expected_number_of_vehiclesday",
+   "fieldtype": "Float",
+   "label": "Expected Number of Vehicles/Day"
+  },
+  {
+   "fieldname": "expected_number_of_vehiclesday_attachment",
+   "fieldtype": "Attach",
+   "label": "Expected Number of Vehicles/Day Attachment"
+  },
+  {
+   "fieldname": "expected_avg_fill_per_vehicle",
+   "fieldtype": "Float",
+   "label": "Expected Avg Fill per Vehicle"
+  },
+  {
+   "fieldname": "expected_avg_fill_per_vehicle_attachment",
+   "fieldtype": "Attach",
+   "label": "Expected Avg Fill per Vehicle Attachment"
+  },
+  {
+   "fieldname": "duration_at_customer_location",
+   "fieldtype": "Select",
+   "label": "Duration at Customer Location",
+   "options": "\n30 min \u2013 1 hr\n1\u20132 hr\n2\u20135 hr\n>5 hr"
+  },
+  {
+   "fieldname": "duration_at_customer_location_attachment",
+   "fieldtype": "Attach",
+   "label": "Duration at Customer Location Attachment"
+  },
+  {
+   "fieldname": "timezone_of_filling_activity",
+   "fieldtype": "Select",
+   "label": "Timezone of Filling Activity",
+   "options": "\nOff-peak\nPeak\nMixed Slots\nOther"
+  },
+  {
+   "fieldname": "timezone_of_filling_activity_attachment",
+   "fieldtype": "Attach",
+   "label": "Timezone of Filling Activity Attachment"
+  },
+  {
+   "fieldname": "fueling_orientation",
+   "fieldtype": "Select",
+   "label": "Fueling Orientation",
+   "options": "\nStationary\nMobile (within/outside site)"
+  },
+  {
+   "fieldname": "fueling_orientation_attachment",
+   "fieldtype": "Attach",
+   "label": "Fueling Orientation Attachment"
+  },
+  {
+   "fieldname": "parking_surface_hard_sand",
+   "fieldtype": "Select",
+   "label": "Parking Surface Hard Sand",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "parking_surface_hard_sand_attachment",
+   "fieldtype": "Attach",
+   "label": "Parking Surface Hard Sand Attachment"
+  },
+  {
+   "fieldname": "parking_on_interlocked_surface",
+   "fieldtype": "Select",
+   "label": "Parking on Interlocked Surface",
+   "options": "\nYes\nNo\nNot public parking"
+  },
+  {
+   "fieldname": "parking_on_interlocked_surface_attachment",
+   "fieldtype": "Attach",
+   "label": "Parking on Interlocked Surface Attachment"
+  },
+  {
+   "fieldname": "lighting_conditions",
+   "fieldtype": "Select",
+   "label": "Lighting Conditions",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "people_movement",
+   "fieldtype": "Select",
+   "label": "People Movement",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "location_of_fueling",
+   "fieldtype": "Data",
+   "label": "Location Of Fueling"
+  },
+  {
+   "fieldname": "column_break_gdyq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "activity_during_fueling",
+   "fieldtype": "Select",
+   "label": "Activity During Fueling",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "hot_works_on_site",
+   "fieldtype": "Select",
+   "label": "Hot Works on Site",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "chemicalwaste_storage_nearby",
+   "fieldtype": "Select",
+   "label": "Chemical/Waste Storage Nearby",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "open_ductsdrains_nearby_petrol",
+   "fieldtype": "Select",
+   "label": "Open Ducts/Drains Nearby (Petrol)",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "electrical_risks_nearby",
+   "fieldtype": "Select",
+   "label": "Electrical Risks Nearby",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "fire_evacuation_blockage",
+   "fieldtype": "Select",
+   "label": "Fire Evacuation Blockage",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "fire_response_equipment_nearby",
+   "fieldtype": "Select",
+   "label": "Fire Response Equipment Nearby",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "work_at_height_required",
+   "fieldtype": "Select",
+   "label": "Work at Height Required",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Data",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "overall_status",
+   "fieldtype": "Select",
+   "label": "Overall Status",
+   "options": "\nApproved\nRejected\nClarification Required"
+  },
+  {
+   "fieldname": "checklist_section",
+   "fieldtype": "Section Break",
+   "label": "CheckList"
+  },
+  {
+   "default": "0",
+   "fieldname": "road_condition_to_the_client_location",
+   "fieldtype": "Check",
+   "label": "Road condition to the client location"
+  },
+  {
+   "default": "0",
+   "fieldname": "5m_distance_from_the_building",
+   "fieldtype": "Check",
+   "label": "5M distance from the building"
+  },
+  {
+   "default": "0",
+   "fieldname": "no_electrical_connections_or_cables",
+   "fieldtype": "Check",
+   "label": "No electrical connections or cables"
+  },
+  {
+   "fieldname": "column_break_gymz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "no_smoking_area_nearby_filling_point",
+   "fieldtype": "Check",
+   "label": "No smoking area nearby filling point"
+  },
+  {
+   "default": "0",
+   "fieldname": "no_traffic_or_pedestrian_hazards",
+   "fieldtype": "Check",
+   "label": "No Traffic or Pedestrian Hazards"
+  },
+  {
+   "default": "0",
+   "fieldname": "dedicated_parkingfueling_space",
+   "fieldtype": "Check",
+   "label": "Dedicated Parking/fueling Space"
+  },
+  {
+   "default": "0",
+   "fieldname": "ample_light_and_ground_conditions",
+   "fieldtype": "Check",
+   "label": "Ample light and ground conditions"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-03-12 12:26:06.698632",
+ "modified_by": "shubhankar.srivastava@fuelbuddy.in",
+ "module": "Fuelbuddy CRM",
+ "name": "HSE Inspection",
+ "owner": "shubhankar.srivastava@fuelbuddy.in",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

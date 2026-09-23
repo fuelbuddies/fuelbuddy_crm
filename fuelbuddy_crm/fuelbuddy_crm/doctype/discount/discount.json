@@ -1,0 +1,241 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2024-08-21 16:02:53.692632",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_zbzq",
+  "amended_from",
+  "naming_series",
+  "quotation",
+  "customer",
+  "column_break_b2s9",
+  "company",
+  "party",
+  "product",
+  "approved",
+  "section_break_l41z",
+  "discount_type",
+  "column_break_kspi",
+  "date",
+  "discount_section",
+  "p_or_v",
+  "threshold_value",
+  "column_break_sspd",
+  "percentage_value",
+  "per_litre_value",
+  "discount_slab_section_section",
+  "slab_discount",
+  "credit_section",
+  "threshold_days",
+  "column_break_vwwa",
+  "payment_terms"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_zbzq",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Discount",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "DIS-.YYYY.-"
+  },
+  {
+   "fieldname": "quotation",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Quotation From",
+   "options": "Quotation"
+  },
+  {
+   "fetch_from": "opportunity_from.customer_name",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "column_break_b2s9",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fetch_from": "opportunity_from.party_name",
+   "fieldname": "party",
+   "fieldtype": "Data",
+   "label": "Party"
+  },
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "label": "Product",
+   "options": "Item"
+  },
+  {
+   "fieldname": "approved",
+   "fieldtype": "Select",
+   "label": "Approved",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "section_break_l41z",
+   "fieldtype": "Section Break",
+   "label": "Discount Method Section"
+  },
+  {
+   "default": "Non-Slab Discount",
+   "fieldname": "discount_type",
+   "fieldtype": "Select",
+   "label": "Discount Method",
+   "options": "\nSlab Discount\nNon-Slab Discount"
+  },
+  {
+   "fieldname": "column_break_kspi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "quotation.valid_till",
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Upto Date"
+  },
+  {
+   "depends_on": "eval:doc.discount_type == \"Non-Slab Discount\"",
+   "fieldname": "discount_section",
+   "fieldtype": "Section Break",
+   "label": "Discount"
+  },
+  {
+   "fieldname": "p_or_v",
+   "fieldtype": "Select",
+   "label": "Percentage/Per Litre",
+   "options": "\nPercentage\nPer Litre"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval: doc.p_or_v == \"Percentage\"",
+   "fieldname": "threshold_value",
+   "fieldtype": "Float",
+   "label": "Max Discount Value"
+  },
+  {
+   "fieldname": "column_break_sspd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.p_or_v == \"Percentage\"",
+   "fieldname": "percentage_value",
+   "fieldtype": "Percent",
+   "label": "Percentage Value"
+  },
+  {
+   "depends_on": "eval:doc.p_or_v == \"Per Litre\"",
+   "fieldname": "per_litre_value",
+   "fieldtype": "Float",
+   "label": "Per Litre Value"
+  },
+  {
+   "depends_on": "eval:doc.discount_type == \"Slab Discount\"",
+   "fieldname": "discount_slab_section_section",
+   "fieldtype": "Section Break",
+   "label": "Discount Slab Section"
+  },
+  {
+   "fieldname": "slab_discount",
+   "fieldtype": "Table",
+   "label": "Slab Discount",
+   "options": "Slab Discount"
+  },
+  {
+   "fieldname": "credit_section",
+   "fieldtype": "Section Break",
+   "label": "Credit"
+  },
+  {
+   "fieldname": "threshold_days",
+   "fieldtype": "Link",
+   "label": "Threshold Days",
+   "options": "Threshold Days"
+  },
+  {
+   "fieldname": "column_break_vwwa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "payment_terms",
+   "fieldtype": "Link",
+   "label": "Payment Terms",
+   "options": "Payment Terms Template"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-02-11 15:12:40.810445",
+ "modified_by": "angad.singh@fuelbuddy.in",
+ "module": "Fuelbuddy CRM",
+ "name": "Discount",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "shubhankar.srivastava@fuelbuddy.in",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Supplier",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}
