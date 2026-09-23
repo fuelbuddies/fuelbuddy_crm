@@ -346,10 +346,21 @@ doc_events = {
         # Keep Sales Order Item.custom_delivery_note_qty_in_draft (which the allocator
         # subtracts from the SO headroom) in step with the live draft DNs -- including
         # RELEASING it on cancel/delete, which the old Server Script never did.
-        "on_update": "fuelbuddy_crm.dn_validation.sync_draft_reservation",
+        # dn_invoice_link: a DN that is submitted, cancelled or deleted inside an already-
+        # invoiced window re-runs the invoices that window belongs to.
+        "on_update": [
+            "fuelbuddy_crm.dn_validation.sync_draft_reservation",
+            "fuelbuddy_crm.dn_invoice_link.on_delivery_note_update",
+        ],
         "on_submit": "fuelbuddy_crm.dn_validation.sync_draft_reservation",
-        "on_cancel": "fuelbuddy_crm.dn_validation.sync_draft_reservation",
-        "on_trash": "fuelbuddy_crm.dn_validation.sync_draft_reservation",
+        "on_cancel": [
+            "fuelbuddy_crm.dn_validation.sync_draft_reservation",
+            "fuelbuddy_crm.dn_invoice_link.on_delivery_note_cancel",
+        ],
+        "on_trash": [
+            "fuelbuddy_crm.dn_validation.sync_draft_reservation",
+            "fuelbuddy_crm.dn_invoice_link.on_delivery_note_trash",
+        ],
     },
     "Finance Dossier": {
         # Keep Quotation.custom_finance_dossier pointing at the current dossier
@@ -378,6 +389,12 @@ doc_events = {
         # before_submit re-applies against the final submitted quantities.
         "before_save": "fuelbuddy_crm.auto_invoicing.apply_manual_invoice_discount_save",
         "before_submit": "fuelbuddy_crm.auto_invoicing.apply_manual_invoice_discount_submit",
+        # DN -> Sales Invoice link: every save (draft, submit, allow-on-submit edits of the
+        # DN window) restamps the DNs this invoice billed; cancel/delete clears them.
+        "on_update": "fuelbuddy_crm.dn_invoice_link.allocate_sales_invoice",
+        "on_update_after_submit": "fuelbuddy_crm.dn_invoice_link.allocate_sales_invoice",
+        "on_cancel": "fuelbuddy_crm.dn_invoice_link.clear_sales_invoice",
+        "on_trash": "fuelbuddy_crm.dn_invoice_link.clear_sales_invoice",
     },
 }
 
