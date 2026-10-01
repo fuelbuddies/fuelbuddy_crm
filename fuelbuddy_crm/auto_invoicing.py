@@ -353,6 +353,14 @@ def rebuild_lines_from_dn_range(doc, method=None):
 	so_details = [r.so_detail for r in doc.items if r.get("sales_order") and r.get("so_detail")]
 	if not so_details:
 		return
+	# Export Sales Orders are billed straight from the SO; they never have Delivery Notes.
+	so_types = frappe.get_all(
+		"Sales Order",
+		filters={"name": ("in", list({r.sales_order for r in doc.items if r.get("sales_order")}))},
+		pluck="custom_transaction_type",
+	)
+	if all(t == "Export" for t in so_types):
+		return
 
 	dn_rows = frappe.db.sql(
 		"""
