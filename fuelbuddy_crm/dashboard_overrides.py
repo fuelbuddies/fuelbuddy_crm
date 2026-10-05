@@ -41,7 +41,21 @@ def quotation_dashboard(data):
 	data = data or {}
 	data.setdefault("transactions", [])
 	data.setdefault("internal_links", {})
+	data.setdefault("non_standard_fieldnames", {})
 
 	data["internal_links"]["Finance Dossier"] = "custom_finance_dossier"
 	data["transactions"].append({"label": _("FuelBuddy"), "items": ["Finance Dossier"]})
+
+	# erpnext counts by items.prevdoc_docname, which monthly contract SOs clear
+	data["non_standard_fieldnames"]["Sales Order"] = "custom_quotation"
+	return data
+
+
+def sales_order_dashboard(data):
+	"""Show the source Quotation on the Sales Order form's Connections tab."""
+	data = data or {}
+	data.setdefault("internal_links", {})
+
+	# header field: monthly contract SOs clear erpnext's ["items", "prevdoc_docname"]
+	data["internal_links"]["Quotation"] = "custom_quotation"
 	return data

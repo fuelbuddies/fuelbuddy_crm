@@ -194,11 +194,12 @@ ignore_links_on_delete = ["Discount"]
 # along with any modifications made in other Frappe apps
 # Add FuelBuddy connections to the Connections tab: Finance Dossier + Business
 # Documentation on Opportunity, Finance Dossier on Quotation (internal link via
-# custom_finance_dossier). The override fn receives the base dashboard `data`
-# dict and returns it augmented.
+# custom_finance_dossier), Sales Order <-> Quotation via the SO's custom_quotation.
+# The override fn receives the base dashboard `data` dict and returns it augmented.
 override_doctype_dashboards = {
     "Opportunity": "fuelbuddy_crm.dashboard_overrides.opportunity_dashboard",
     "Quotation": "fuelbuddy_crm.dashboard_overrides.quotation_dashboard",
+    "Sales Order": "fuelbuddy_crm.dashboard_overrides.sales_order_dashboard",
 }
 
 # exempt linked doctypes from being automatically cancelled
