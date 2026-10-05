@@ -267,6 +267,14 @@ def _make_draft_invoice(so, dn_items, from_date, to_date):
 			for tax in get_taxes_and_charges("Sales Taxes and Charges Template", default_taxes):
 				si.append("taxes", tax)
 
+	# The desk form sets the company's accounting-dimension defaults client-side; no form runs here.
+	from erpnext.accounts.doctype.accounting_dimension.accounting_dimension import get_dimensions
+
+	dimensions, defaults = get_dimensions()
+	for d in dimensions:
+		if not si.get(d.fieldname) and (default := defaults.get(si.company, {}).get(d.fieldname)):
+			si.set(d.fieldname, default)
+
 	_apply_quotation_discount(si, so)
 	# Discount already applied in-process; the manual-SI before_save hook skips us,
 	# and so does rebuild_lines_from_dn_range (the lines are already built per group).
