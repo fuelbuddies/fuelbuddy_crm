@@ -9,7 +9,8 @@ record; 0 = invoice per Delivery Note; blank = skip + Issue).
 Invoices are built from the SO (party / taxes / rates via the standard SO->SI
 mapper) with quantities summed from the Delivery Notes in the invoicing window.
 Idempotency is by period, tracked on ``custom_last_invoiced_upto``: each window
-runs from the day after it (the SO transaction date for the first cycle) to
+runs from the day after it (the SO transaction date for the first cycle, or
+when it ends before the SO's month) to
 today -- to the previous month-end for frequency 30 (monthly) -- so
 already-invoiced deliveries are excluded by date. The discount from
 the Quotation / Opportunity is applied per line off the catalog price.
@@ -195,6 +196,9 @@ def _invoicing_window(so):
 	freq_days = cint(freq_raw)
 
 	last_upto = so.get("custom_last_invoiced_upto")
+	# A cursor ending before this SO's month was copied or back-dated, so start from the SO date.
+	if last_upto and getdate(add_days(last_upto, 1)) < get_first_day(so.transaction_date):
+		last_upto = None
 	today = getdate(nowdate())
 	from_date = getdate(add_days(last_upto, 1)) if last_upto else getdate(so.transaction_date)
 
