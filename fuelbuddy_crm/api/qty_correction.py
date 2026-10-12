@@ -388,45 +388,62 @@ def _increase_candidates(doc, target):
 
 
 def _delta_candidates(doc):
-	"""Sales Orders that can absorb an increase, FIFO, starting at the last line's own order
-	(as erp-functions updateDeliveryNote does). Closed / On Hold orders cannot take a delivery."""
-	query = so_allocator.build_sales_order_query(doc.customer, doc.customer_address, doc.posting_date)
-	orders = frappe.get_all(
-		"Sales Order",
-		filters=query["filters"],
-		fields=[*query["fields"], "status"],
-		order_by=query["order_by"],
-		limit_page_length=query["limit"],
+	"""Sales Orders that can absorb an increase, FIFO from the last line's own order on (as
+	erp-functions updateDeliveryNote does), out of the orders a new Delivery Note may map against
+	on this Delivery Note's posting date (so_allocator.build_sales_order_query: open orders only,
+	no end date for Fixed Quantity). The last line's own order comes first whatever its status: To
+	Bill or Completed usually means this very Delivery Note used it up (a Closed or On Hold one is
+	refused before this, SO_CLOSED)."""
+	queries = so_allocator.build_sales_order_query(doc.customer, doc.customer_address, doc.posting_date)
+	orders = so_allocator.oldest_first(
+		frappe.get_all("Sales Order", filters=query["filters"], fields=query["fields"], limit_page_length=query["limit"])
+		for query in queries
 	)
-	candidates = []
-	for so in orders:
-		if so.status in CLOSED_SO_STATUSES:
-			continue
-		items = frappe.get_all(
-			"Sales Order Item",
-			filters={"parent": so.name},
-			fields=[
-				"name",
-				"item_code",
-				"item_name",
-				"uom",
-				"conversion_factor",
-				"rate",
-				"price_list_rate",
-				"discount_percentage",
-				"discount_amount",
-				"qty",
-				"delivered_qty",
-				"custom_delivery_note_qty_in_draft",
-			],
-			order_by="idx asc",
-			limit_page_length=1,
-		)
-		if items:
-			candidates.append({"so": {"name": so.name}, "soItem": items[0]})
-	last_so = doc.items[-1].against_sales_order if doc.items else None
+	candidates = [candidate for candidate in map(_order_candidate, orders) if candidate]
+	last = doc.items[-1] if doc.items else None
+	last_so = last.against_sales_order if last else None
 	start = next((i for i, c in enumerate(candidates) if c["so"]["name"] == last_so), None)
-	return candidates[start:] if start is not None else candidates
+	if start is not None:
+		return candidates[start:]
+	own = _own_line_candidate(last)
+	return [own, *candidates] if own else candidates
+
+
+SO_ITEM_FIELDS = (
+	"name",
+	"item_code",
+	"item_name",
+	"uom",
+	"conversion_factor",
+	"rate",
+	"price_list_rate",
+	"discount_percentage",
+	"discount_amount",
+	"qty",
+	"delivered_qty",
+	"custom_delivery_note_qty_in_draft",
+)
+
+
+def _order_candidate(order):
+	"""A Sales Order as an increase candidate, on its fuel line (so_allocator.fuel_line)."""
+	items = frappe.get_all(
+		"Sales Order Item", filters={"parent": order["name"]}, fields=list(SO_ITEM_FIELDS), order_by="idx asc"
+	)
+	line = so_allocator.fuel_line(items)
+	return {"so": {"name": order["name"]}, "soItem": line} if line else None
+
+
+def _own_line_candidate(line):
+	"""The Delivery Note line's own Sales Order line as an increase candidate."""
+	if not line or not line.against_sales_order or not line.so_detail:
+		return None
+	items = frappe.get_all(
+		"Sales Order Item",
+		filters={"name": line.so_detail, "parent": line.against_sales_order},
+		fields=list(SO_ITEM_FIELDS),
+	)
+	return {"so": {"name": line.against_sales_order}, "soItem": items[0]} if items else None
 
 
 # ---- plan ----------------------------------------------------------------------------------------
