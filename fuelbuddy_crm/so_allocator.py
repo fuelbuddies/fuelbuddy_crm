@@ -55,24 +55,69 @@ def line_litres(line):
 	return _number(line.get("qty"), 0) * cf(line)
 
 
-def build_sales_order_query(customer, billing_address, reference_date):
-	"""Candidate Sales Orders for a Delivery Note, oldest first (creation FIFO).
+# Deal Type whose Sales Orders have no end date: they are used up by quantity.
+FIXED_QUANTITY = "Fixed Quantity"
 
-	Same customer + billing address, submitted, and the DN posting date inside the SO validity
-	window ``transaction_date <= reference_date <= delivery_date``. Deal type and quantity are
-	not filtered here; remaining qty is computed per SO line (``remaining_litres``)."""
-	return {
-		"filters": [
-			["customer", "=", customer],
-			["customer_address", "=", billing_address],
-			["docstatus", "=", 1],
-			["transaction_date", "<=", reference_date],
-			["delivery_date", ">=", reference_date],
-		],
-		"fields": ["name"],
-		"order_by": "creation asc",
-		"limit": 0,
-	}
+# The only Sales Order statuses a Delivery Note maps against, for every deal type. To Bill,
+# Completed, On Hold and Closed take nothing; ERPNext itself refuses a Delivery Note against an
+# On Hold or Closed order.
+OPEN_SO_STATUSES = ("To Deliver and Bill", "To Deliver")
+
+# The fuel item a delivery books on (erp-functions ITEM.DIESEL_CODE).
+FUEL_ITEM_CODE = "FB/FL/00001"
+
+
+def build_sales_order_query(customer, billing_address, reference_date):
+	"""The ``frappe.get_all`` queries returning candidate Sales Orders for a Delivery Note;
+	``oldest_first`` merges their results (creation FIFO).
+
+	Every candidate belongs to the customer + billing address, is submitted, is open
+	(``OPEN_SO_STATUSES``) and has started by the DN posting date
+	(``transaction_date <= reference_date``), then:
+
+	- any deal type but Fixed Quantity: it has not ended either (``delivery_date >= reference_date``)
+	- Fixed Quantity: no end date; it must have a fuel line
+
+	Quantity is not filtered here; remaining qty is computed per SO line (``remaining_litres``)."""
+
+	def query(filters):
+		return {
+			"filters": [
+				["customer", "=", customer],
+				["customer_address", "=", billing_address],
+				["docstatus", "=", 1],
+				["status", "in", list(OPEN_SO_STATUSES)],
+				["transaction_date", "<=", reference_date],
+				*filters,
+			],
+			"fields": ["name", "creation"],
+			"limit": 0,
+		}
+
+	return [
+		query([["custom_deal_type", "!=", FIXED_QUANTITY], ["delivery_date", ">=", reference_date]]),
+		query(
+			[
+				["custom_deal_type", "=", FIXED_QUANTITY],
+				["Sales Order Item", "item_code", "=", FUEL_ITEM_CODE],
+			]
+		),
+	]
+
+
+def oldest_first(order_lists):
+	"""Every query's orders, one entry per name (the fuel-line join can repeat an order), oldest
+	``creation`` first: erp-functions ``fetchCandidates``."""
+	by_name = {}
+	for orders in order_lists:
+		for order in orders:
+			by_name[order["name"]] = order
+	return sorted(by_name.values(), key=lambda order: str(order["creation"]))
+
+
+def fuel_line(items):
+	"""The Sales Order line a delivery books on: its fuel line, else its first line."""
+	return next((item for item in items if item.get("item_code") == FUEL_ITEM_CODE), items[0] if items else None)
 
 
 def remaining_litres(so_item):

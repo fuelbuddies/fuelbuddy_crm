@@ -1,12 +1,12 @@
 {
 	"_meta": {
 		"purpose": "Shared cases for the SO allocator. erp-functions (JS) is the source; fuelbuddy_crm/so_allocator.py (Python) must reproduce every expected value.",
-		"generated_by": "_shared/gen_so_allocator_cases.mjs (node v26.8.1)",
-		"erp_functions_commit": "92970f690eef3079890cb420af1101566443d102",
+		"generated_by": "_shared/gen_so_allocator_cases.mjs (node v26.10.0)",
+		"erp_functions_commit": "e85a9245752370e6d532e51e48f6a796af00f83d",
 		"source_blobs": {
-			"src/erp/allocateSalesOrders.js": "ac7b355e25c907769c8950170882ffd65a635ae2",
+			"src/erp/allocateSalesOrders.js": "50369b50008adc8e171481260239e46118d206d9",
 			"src/erp/reconcileDeliveryNoteLines.js": "9001ee5ba061b3361a8b8bb6bae6bde2c5ee11b3",
-			"src/erp/createDeliveryNote.js": "b34af55235df1afb027bd3819ede70fbc9e8c22b",
+			"src/erp/createDeliveryNote.js": "c9b9d9138c4471ee60d906c6ff88232a8f60ea7d",
 			"src/lib/utils/deliveryNote.util.js": "2426cadea5a235eb54d75b1dba3b20c803188e22"
 		},
 		"reconcile_line_projection": [
@@ -26,40 +26,103 @@
 				"CUST-00042-Billing",
 				"2026-08-15"
 			],
-			"expected": {
-				"filters": [
-					[
-						"customer",
-						"=",
-						"CUST-00042"
+			"expected": [
+				{
+					"filters": [
+						[
+							"customer",
+							"=",
+							"CUST-00042"
+						],
+						[
+							"customer_address",
+							"=",
+							"CUST-00042-Billing"
+						],
+						[
+							"docstatus",
+							"=",
+							1
+						],
+						[
+							"status",
+							"in",
+							[
+								"To Deliver and Bill",
+								"To Deliver"
+							]
+						],
+						[
+							"transaction_date",
+							"<=",
+							"2026-08-15"
+						],
+						[
+							"custom_deal_type",
+							"!=",
+							"Fixed Quantity"
+						],
+						[
+							"delivery_date",
+							">=",
+							"2026-08-15"
+						]
 					],
-					[
-						"customer_address",
-						"=",
-						"CUST-00042-Billing"
+					"fields": [
+						"name",
+						"creation"
 					],
-					[
-						"docstatus",
-						"=",
-						1
+					"limit": 0
+				},
+				{
+					"filters": [
+						[
+							"customer",
+							"=",
+							"CUST-00042"
+						],
+						[
+							"customer_address",
+							"=",
+							"CUST-00042-Billing"
+						],
+						[
+							"docstatus",
+							"=",
+							1
+						],
+						[
+							"status",
+							"in",
+							[
+								"To Deliver and Bill",
+								"To Deliver"
+							]
+						],
+						[
+							"transaction_date",
+							"<=",
+							"2026-08-15"
+						],
+						[
+							"custom_deal_type",
+							"=",
+							"Fixed Quantity"
+						],
+						[
+							"Sales Order Item",
+							"item_code",
+							"=",
+							"FB/FL/00001"
+						]
 					],
-					[
-						"transaction_date",
-						"<=",
-						"2026-08-15"
+					"fields": [
+						"name",
+						"creation"
 					],
-					[
-						"delivery_date",
-						">=",
-						"2026-08-15"
-					]
-				],
-				"fields": [
-					"name"
-				],
-				"order_by": "creation asc",
-				"limit": 0
-			}
+					"limit": 0
+				}
+			]
 		},
 		{
 			"name": "first of the month",
@@ -68,40 +131,103 @@
 				"Acme Logistics LLC-Billing-1",
 				"2026-10-01"
 			],
-			"expected": {
-				"filters": [
-					[
-						"customer",
-						"=",
-						"Acme Logistics LLC"
+			"expected": [
+				{
+					"filters": [
+						[
+							"customer",
+							"=",
+							"Acme Logistics LLC"
+						],
+						[
+							"customer_address",
+							"=",
+							"Acme Logistics LLC-Billing-1"
+						],
+						[
+							"docstatus",
+							"=",
+							1
+						],
+						[
+							"status",
+							"in",
+							[
+								"To Deliver and Bill",
+								"To Deliver"
+							]
+						],
+						[
+							"transaction_date",
+							"<=",
+							"2026-10-01"
+						],
+						[
+							"custom_deal_type",
+							"!=",
+							"Fixed Quantity"
+						],
+						[
+							"delivery_date",
+							">=",
+							"2026-10-01"
+						]
 					],
-					[
-						"customer_address",
-						"=",
-						"Acme Logistics LLC-Billing-1"
+					"fields": [
+						"name",
+						"creation"
 					],
-					[
-						"docstatus",
-						"=",
-						1
+					"limit": 0
+				},
+				{
+					"filters": [
+						[
+							"customer",
+							"=",
+							"Acme Logistics LLC"
+						],
+						[
+							"customer_address",
+							"=",
+							"Acme Logistics LLC-Billing-1"
+						],
+						[
+							"docstatus",
+							"=",
+							1
+						],
+						[
+							"status",
+							"in",
+							[
+								"To Deliver and Bill",
+								"To Deliver"
+							]
+						],
+						[
+							"transaction_date",
+							"<=",
+							"2026-10-01"
+						],
+						[
+							"custom_deal_type",
+							"=",
+							"Fixed Quantity"
+						],
+						[
+							"Sales Order Item",
+							"item_code",
+							"=",
+							"FB/FL/00001"
+						]
 					],
-					[
-						"transaction_date",
-						"<=",
-						"2026-10-01"
+					"fields": [
+						"name",
+						"creation"
 					],
-					[
-						"delivery_date",
-						">=",
-						"2026-10-01"
-					]
-				],
-				"fields": [
-					"name"
-				],
-				"order_by": "creation asc",
-				"limit": 0
-			}
+					"limit": 0
+				}
+			]
 		}
 	],
 	"remainingLitres": [
