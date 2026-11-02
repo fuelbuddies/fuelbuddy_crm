@@ -13,6 +13,13 @@
   "auto_invoicing_discount_source",
   "credit_limit_section",
   "enable_credit_limit",
+  "credit_insured_factor",
+  "credit_warning_percent",
+  "credit_column_break",
+  "credit_overdue_grace_days",
+  "credit_overdue_min_amount",
+  "credit_unbilled_from",
+  "credit_exception_max_days",
   "business_documents_section",
   "document_required",
   "wallet_section",
@@ -68,10 +75,56 @@
   },
   {
    "default": "0",
-   "description": "When enabled, a Credit Limit record is created for each non-cash-advance customer (on onboarding and from the Finance Dossier), and Delivery Notes are blocked when the customer is overdue or over their limit. When disabled, no records are created and Delivery Notes are not blocked on credit.",
+   "description": "When enabled, ERP computes every credit customer's operating limit, exposure and stop reasons on its Credit Limit record (on money events and every 15 minutes) for the platform to enforce. ERP never blocks a Delivery Note. When disabled, nothing is computed.",
    "fieldname": "enable_credit_limit",
    "fieldtype": "Check",
    "label": "Enable Credit Limit"
+  },
+  {
+   "default": "80",
+   "description": "Operating limit is this share of the insured limit (capped by the committee limit). 0 means 80.",
+   "fieldname": "credit_insured_factor",
+   "fieldtype": "Percent",
+   "label": "Insured Limit Factor"
+  },
+  {
+   "default": "80",
+   "description": "Status turns Warning when exposure reaches this share of the operating limit. 0 means 80.",
+   "fieldname": "credit_warning_percent",
+   "fieldtype": "Percent",
+   "label": "Warning At"
+  },
+  {
+   "fieldname": "credit_column_break",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "15",
+   "description": "Credit stops when an invoice is overdue by more than this many days. At least 15; 0 means 15.",
+   "fieldname": "credit_overdue_grace_days",
+   "fieldtype": "Int",
+   "label": "Overdue Grace Days"
+  },
+  {
+   "default": "100",
+   "description": "Overdue balances below this amount (company currency) do not stop credit. 0 means 100.",
+   "fieldname": "credit_overdue_min_amount",
+   "fieldtype": "Currency",
+   "label": "Overdue Minimum Amount"
+  },
+  {
+   "default": "2026-06-01",
+   "description": "Delivery Notes posted before this date are not counted as unbilled exposure.",
+   "fieldname": "credit_unbilled_from",
+   "fieldtype": "Date",
+   "label": "Count Unbilled Deliveries From"
+  },
+  {
+   "default": "7",
+   "description": "Longest a Credit Exception may run. 0 means 7.",
+   "fieldname": "credit_exception_max_days",
+   "fieldtype": "Int",
+   "label": "Credit Exception Max Days"
   },
   {
    "fieldname": "wallet_section",
@@ -146,7 +199,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-09-16 12:00:00.000000",
+ "modified": "2026-10-30 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Fuelbuddy CRM",
  "name": "Fuelbuddy Settings",
@@ -168,5 +221,6 @@
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }
