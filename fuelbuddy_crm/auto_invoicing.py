@@ -16,11 +16,19 @@ the Quotation / Opportunity is applied per line off the catalog price.
 
 Failures are logged as an Issue (``issue_type = "Invoicing"``) without blocking
 the batch.
+
+A Sales Order with a delivery under quantity correction in its window waits
+(IDEV-3266, fuelbuddy_crm.invoice_hold): no invoice, cursor untouched, one log
+line per day; the next run takes the whole window again.
 """
 
 import frappe
 from frappe import _
 from frappe.utils import add_days, cint, cstr, flt, get_first_day, getdate, nowdate, strip_html
+
+from fuelbuddy_crm.dn_unbilled_litres import litres_rebuild_enabled, unbilled_rows
+from fuelbuddy_crm.force_majeure import fm_rate, fm_resolver, force_line
+from fuelbuddy_crm.invoice_hold import InvoiceHeldError, defer_sales_order, held_deliveries, so_line_names
 
 ISSUE_TYPE = "Invoicing"
 VALID_INVOICING_TYPES = ("Single Invoice", "Split Invoice")
@@ -49,6 +57,12 @@ def generate_sales_invoices():
 		try:
 			_invoice_sales_order(so_name, all_customers)
 			frappe.db.commit()
+		except InvoiceHeldError as e:
+			# A hold landed between the check in _invoice_sales_order and an invoice insert
+			# (fuelbuddy_crm.invoice_hold refuses it): the whole Sales Order waits, as if the
+			# check had seen it. Nothing of this Sales Order is kept, the cursor included.
+			frappe.db.rollback()
+			defer_sales_order(so_name, held=e.held)
 		except Exception as e:
 			frappe.db.rollback()
 			_log_invoicing_issue(
@@ -119,6 +133,14 @@ def _invoice_sales_order(so_name, all_customers=False):
 	if not window:
 		return
 	from_date, to_date, freq_days = window
+
+	# IDEV-3266: a delivery under quantity correction in the window holds the whole Sales Order
+	# (every invoice the window gives would make it INVOICED). The cursor is left alone, so the
+	# next run takes the whole window again.
+	held = held_deliveries(so_line_names(so_name), from_date, to_date)
+	if held:
+		defer_sales_order(so_name, from_date, to_date, held)
+		return
 
 	dns = frappe.db.sql(
 		"""
@@ -219,28 +241,26 @@ def _make_draft_invoice(so, dn_items, from_date, to_date):
 
 	si = make_sales_invoice(so.name, ignore_permissions=True)
 
-	# Keep only delivered lines; qty = sum of the group's DN quantities.
-	qty_by_so_detail = {}
-	for d in dn_items:
-		qty_by_so_detail[d.so_detail] = qty_by_so_detail.get(d.so_detail, 0) + flt(d.qty)
 	if unmatched := [d for d in dn_items if not any(r.so_detail == d.so_detail for r in si.items)]:
 		frappe.throw(
 			_("Delivery Note {0} row has no matching Sales Order line for item {1}").format(
 				unmatched[0].name, unmatched[0].item_code
 			)
 		)
-	rows = [r for r in si.items if r.so_detail in qty_by_so_detail]
-	si.set("items", [])
-	for row in rows:
-		row.qty = qty_by_so_detail[row.so_detail]
-		row.amount = row.base_amount = None
-		si.append("items", row)
+	_split_lines(si, so.customer, dn_items)
 
 	if not si.get("items"):
 		return None
 
 	si.set_posting_time = 1
 	si.posting_date = to_date
+	# The mapper computed due_date off today's date; posting_date is now backdated
+	# to the window end, so recompute due date + schedule off it or validate throws
+	# "Due / Reference Date cannot be after ..." for every backdated invoice.
+	from erpnext.accounts.party import get_due_date
+
+	si.due_date = get_due_date(to_date, "Customer", si.customer, si.company)
+	si.set("payment_schedule", [])
 
 	if (so.get("custom_invoicing_type") or "").strip() == "Split Invoice":
 		si.custom_department = dn_items[0].custom_department
@@ -268,20 +288,154 @@ def _make_draft_invoice(so, dn_items, from_date, to_date):
 				si.append("taxes", tax)
 
 	_apply_quotation_discount(si, so)
-	# Discount already applied in-process; the manual-SI before_save hook skips us.
+	# Discount already applied in-process; the manual-SI before_save hook skips us,
+	# and so does rebuild_lines_from_dn_range (the lines are already built per group).
 	si.flags.fb_auto_invoicing = True
 	si.flags.ignore_permissions = True
-	# Set the period dates AFTER insert: filling them at insert fires the live
-	# "Auto Pick of DN..." Server Script, whose split-unaware date-range rollup
-	# would overwrite the per-group quantities. ignore_mandatory covers the two
-	# briefly-empty date fields; manual submit re-validates. Left in Draft.
-	# ponytail: drop this two-step insert once that Server Script is retired.
-	si.insert(ignore_permissions=True, ignore_mandatory=True)
-	si.db_set({"custom_dn_from_date": from_date, "custom_dn_to_date": to_date})
-	# Scheduler owns the period end; set it explicitly (the after_insert handler
-	# only saw posting_date, before custom_dn_to_date was db_set above).
-	frappe.db.set_value("Sales Order", so.name, "custom_last_invoiced_upto", to_date)
+	si.custom_dn_from_date = from_date
+	si.custom_dn_to_date = to_date
+	si.insert(ignore_permissions=True, ignore_mandatory=True)  # left in Draft
 	return si.name
+
+
+def _split_lines(si, customer, dn_rows):
+	"""Rebuild ``si.items`` from per-Delivery-Note rows: one line per SO line AND per
+	Force Majeure decision on each DN's own posting date (IDEV-3129).
+
+	Quantity delivered outside any FM window stays one line at normal pricing (key
+	``None``); quantity delivered inside a window becomes its own line at that
+	Pricing's flat rate, stamped. A window that straddles the event therefore gives
+	two lines per item -- outside-period first -- by design. ``fm_resolver`` is None
+	when FM cannot apply to this customer; then every row lands in the None bucket
+	and the invoice is built exactly as it always was.
+
+	``dn_rows`` need ``so_detail``, ``item_code``, ``qty`` and ``posting_date``. SO
+	lines with no rows are dropped (callers decide beforehand whether that is an
+	error); lines not linked to an SO at all are kept as they are. Returns the
+	buckets for the caller's messages. Shared by the scheduler and the manual
+	date-range rollup so the two paths cannot drift apart."""
+	resolve = fm_resolver(customer)
+	buckets = {}  # (so_detail, pricing_name | None) -> qty, in delivery order
+	fm_rates = {}  # pricing_name -> {item_code: rate}
+	for d in dn_rows:
+		key = (d.so_detail, None)
+		if resolve and (pricing := resolve(d.posting_date)):
+			if rate := fm_rate(pricing, d.item_code):
+				key = (d.so_detail, pricing.name)
+				fm_rates.setdefault(pricing.name, {})[d.item_code] = rate
+		buckets[key] = buckets.get(key, 0) + flt(d.qty)
+
+	delivered = {k[0] for k in buckets}
+	rows = list(si.items)
+	si.set("items", [])
+	for row in rows:
+		if not row.so_detail:
+			si.append("items", row.as_dict(no_default_fields=True))  # free line: untouched
+			continue
+		if row.so_detail not in delivered:
+			continue
+		# Outside-period quantity first, then each FM window in delivery order.
+		keys = sorted((k for k in buckets if k[0] == row.so_detail), key=lambda k: k[1] is not None)
+		for key in keys:
+			pricing_name = key[1]
+			line = si.append("items", row.as_dict(no_default_fields=True))
+			line.qty = buckets[key]
+			line.stock_qty = flt(line.qty) * (flt(line.conversion_factor) or 1)
+			line.amount = line.base_amount = None
+			if pricing_name:
+				force_line(line, fm_rates[pricing_name][line.item_code], pricing_name)
+	return buckets
+
+
+def rebuild_lines_from_dn_range(doc, method=None):
+	"""Sales Invoice ``before_validate``: the MANUAL period invoice. Replaces the
+	"Auto Pick of DN at Sales Invoice and Update of Qty" Server Script, keeping its
+	contract -- new invoices only; ``custom_dn_from_date`` / ``custom_dn_to_date``
+	define the period; only ``To Bill`` / ``Partially Billed`` DNs count, and a
+	partly billed row contributes just its unbilled fraction ``qty * (amount -
+	billed_amt) / amount``; an SO line with no delivery in range refuses the save
+	(the script zeroed it, which ERPNext then refused as a zero quantity -- same
+	outcome, one message instead of two).
+
+	What changes: the rollup is per delivery, through ``_split_lines``, so a manual
+	invoice honours Force Majeure exactly like a scheduler one (IDEV-3129). The
+	script's filter said ``Partly Billed`` -- ERPNext's Purchase Receipt status; a
+	Delivery Note says ``Partially Billed`` -- so it never matched one, and the
+	unbilled lines of a DN split over two SO lines were left off the second SO's
+	invoice once the first was billed (IDEV-3270). Runs
+	before the controller's validate so ERPNext computes stock qty, amounts and
+	totals off the rebuilt lines itself; the Server Script ran after and had to
+	patch them by hand. Scheduler invoices arrive with their lines already built
+	per group and are skipped via the ``fb_auto_invoicing`` flag.
+
+	Litres, not amounts (IDEV-3270, owner decision 29 Sep): with the site switch
+	``invoice_rebuild_by_litres`` on, what is left to invoice is counted in litres
+	-- delivered litres less the litres already on live invoices for each DN line
+	(fuelbuddy_crm.dn_unbilled_litres) -- so a DN whose litres are all invoiced at a
+	discount or another price is not offered again. Off by default; switched on
+	only after the IDEV-3268 one-time billing repair has run on the site. Off, the
+	status filter and amount fraction above apply unchanged."""
+	if not doc.is_new() or doc.flags.get("fb_auto_invoicing"):
+		return
+	from_date, to_date = doc.get("custom_dn_from_date"), doc.get("custom_dn_to_date")
+	if not (from_date and to_date):
+		return
+	if getdate(to_date) < getdate(from_date):
+		frappe.throw(_("DN To Date cannot be earlier than DN From Date"))
+	so_details = [r.so_detail for r in doc.items if r.get("sales_order") and r.get("so_detail")]
+	if not so_details:
+		return
+
+	if litres_rebuild_enabled():
+		dn_rows = unbilled_rows(so_details, from_date, to_date)
+	else:
+		dn_rows = _unbilled_rows_by_amount(so_details, from_date, to_date)
+	dns_for = {}
+	for d in dn_rows:
+		dns_for.setdefault(d.so_detail, set()).add(d.dn)
+	if missing := [r.item_code for r in doc.items if r.get("so_detail") in so_details and r.so_detail not in dns_for]:
+		frappe.throw(
+			_("No Delivery Notes found for {0} between {1} and {2}").format(
+				", ".join(missing), from_date, to_date
+			)
+		)
+	buckets = _split_lines(doc, doc.customer, dn_rows)
+	for line in doc.items:
+		if line.get("so_detail") and not line.get("custom_force_majeure_pricing"):
+			frappe.msgprint(
+				_("{0}: Qty {1} from DN {2} (between {3} and {4})").format(
+					line.item_code,
+					sum(q for k, q in buckets.items() if k[0] == line.so_detail),
+					", ".join(sorted(dns_for[line.so_detail])),
+					from_date,
+					to_date,
+				),
+				alert=True,
+			)
+
+
+def _unbilled_rows_by_amount(so_details, from_date, to_date):
+	"""The rebuild's rows with the litres switch off: ``To Bill`` / ``Partially
+	Billed`` DNs in the window, each row's unbilled fraction by AMOUNT (ERPNext's
+	billing status); fully billed rows add nothing."""
+	dn_rows = frappe.db.sql(
+		"""
+		select dn.name as dn, dn.posting_date, dni.so_detail, dni.item_code,
+			case when coalesce(dni.amount, 0) > 0
+				then dni.qty * greatest((dni.amount - coalesce(dni.billed_amt, 0)) / dni.amount, 0)
+				else dni.qty end as qty
+		from `tabDelivery Note Item` dni
+		join `tabDelivery Note` dn on dn.name = dni.parent
+		where dn.docstatus = 1
+			and dn.status in ('To Bill', 'Partially Billed')
+			and dn.posting_date between %(from_date)s and %(to_date)s
+			and dni.so_detail in %(so_details)s
+		order by dn.posting_date, dn.name, dni.idx
+		""",
+		{"from_date": from_date, "to_date": to_date, "so_details": tuple(so_details)},
+		as_dict=True,
+	)
+	return [d for d in dn_rows if flt(d.qty) > 0]
 
 
 def update_so_last_invoiced(doc, method=None):
@@ -387,6 +541,14 @@ def _apply_quotation_discount(si, so):
 	# ponytail: for Split invoices slabs/caps apply per split invoice, not per
 	# SO cycle total -- revisit if the business wants cycle-level slab qty.
 	"""
+	# Force Majeure lines carry their own agreed price (IDEV-3129); the deal
+	# discount applies only to the rest of the invoice -- their qty stays out of
+	# the slab / cap maths too, and their rate is never touched. Guarded here
+	# rather than at the call sites so the scheduler and manual paths can't drift.
+	items = [i for i in si.items if not i.get("custom_force_majeure_pricing")]
+	if not items:
+		return
+
 	src = _discount_source(so)
 	method = (_src_get(src, "custom_discount_method") or "").strip()
 	if not method:
@@ -397,11 +559,11 @@ def _apply_quotation_discount(si, so):
 		return
 
 	# Discount is off the catalog list price; fall back to the SO rate if unset.
-	for i in si.items:
+	for i in items:
 		if not flt(i.price_list_rate):
 			i.price_list_rate = flt(i.rate)
 
-	qty = sum(flt(i.qty) for i in si.items)
+	qty = sum(flt(i.qty) for i in items)
 	pct = 0.0
 	per_unit = 0.0
 	cap_total = 0.0     # slab threshold_value: caps the invoice-total discount
@@ -423,7 +585,7 @@ def _apply_quotation_discount(si, so):
 		# rule, 31 Jul 2026). Pure RATE comparison — the max stays out of it.
 		pct_val = flt(_src_get(src, "custom_percentage_value"))
 		per_l_val = flt(_src_get(src, "custom_per_litre_value"))
-		list_total = sum(flt(i.price_list_rate) * flt(i.qty) for i in si.items)
+		list_total = sum(flt(i.price_list_rate) * flt(i.qty) for i in items)
 		if pct_val and per_l_val:
 			use_pct = list_total * pct_val / 100.0 <= per_l_val * qty
 		else:
@@ -440,7 +602,7 @@ def _apply_quotation_discount(si, so):
 		else:
 			per_unit = per_l_val
 
-	list_total = sum(flt(i.price_list_rate) * flt(i.qty) for i in si.items)
+	list_total = sum(flt(i.price_list_rate) * flt(i.qty) for i in items)
 	intended = list_total * pct / 100.0 if pct else per_unit * qty
 	if intended <= 0:
 		return
@@ -460,7 +622,7 @@ def _apply_quotation_discount(si, so):
 	# distribute the cap per line by value if multi-item + capped appears.
 	uncapped_pct = pct and not capped
 	per_unit_eff = per_unit_rate
-	for i in si.items:
+	for i in items:
 		i.margin_type = ""
 		list_rate = flt(i.price_list_rate)
 		if uncapped_pct:

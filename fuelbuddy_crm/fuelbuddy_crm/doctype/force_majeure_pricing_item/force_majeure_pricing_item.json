@@ -1,0 +1,50 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-09-14 12:00:00.000000",
+ "description": "One fuel SKU's flat interim rate for the duration of a Force Majeure event. Rows live on Force Majeure Pricing; see that DocType for the gates that decide whether a row is applied at all.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item_code",
+  "override_rate"
+ ],
+ "fields": [
+  {
+   "columns": 4,
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "options": "Item",
+   "reqd": 1,
+   "link_filters": "[[\"Item\", \"is_stock_item\", \"=\", 1]]",
+   "description": "Fuel SKU. Only items with \"Maintain Stock\" ticked can be picked."
+  },
+  {
+   "columns": 4,
+   "description": "Interim rate per litre, ex-VAT (e.g. 3.37). Billed flat for the duration of the override -- the contract rate and the deal discount are both suppressed on this line. VAT is charged on top by the normal tax template.",
+   "fieldname": "override_rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Override Rate",
+   "non_negative": 1,
+   "reqd": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-16 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Fuelbuddy CRM",
+ "name": "Force Majeure Pricing Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

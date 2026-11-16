@@ -10,6 +10,21 @@
 //   - BUG-005: guide the user to Save before Submit while there are unsaved changes.
 
 frappe.ui.form.on("Quotation", {
+	// Billing Address picker: filter Addresses by the Quotation's own party.
+	// (Replaces the "Quotation Filtering On Fields" Client Script, whose filters were
+	// ['Dynamic Link','link_doctype','=','party_name'] -- a literal string rather than
+	// quotation_to -- and ['Dynamic Link','link_name','=',frm.doc.name] -- the Quotation's
+	// own name rather than the party. Both wrong, so the dropdown returned zero rows and
+	// no address could be picked when the customer had more than one.)
+	setup: function (frm) {
+		frm.set_query("customer_address", function (doc) {
+			return {
+				query: "frappe.contacts.doctype.address.address.address_query",
+				filters: { link_doctype: doc.quotation_to, link_name: doc.party_name },
+			};
+		});
+	},
+
 	refresh: function (frm) {
 		add_opportunity_navigation(frm);
 		guide_save_before_submit(frm);
