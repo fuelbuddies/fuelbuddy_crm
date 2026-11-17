@@ -81,6 +81,25 @@ CUSTOM_FIELDS: dict[str, list[dict]] = {
 			"in_standard_filter": 1,
 			"translatable": 1,
 		},
+		# The customer's asset the delivery fuelled. Links to Customer Asset, which this app also owns,
+		# so the DocType exists before this field is applied.
+		{
+			"fieldname": "custom_customer_asset",
+			"label": "Customer Asset",
+			"fieldtype": "Link",
+			"options": "Customer Asset",
+			"insert_after": "custom_section_break_w5g3d",
+			"reqd": 1,
+			"unique": 0,
+			"read_only": 0,
+			"hidden": 0,
+			"allow_on_submit": 0,
+			"no_copy": 0,
+			"in_global_search": 1,
+			"in_list_view": 1,
+			"in_preview": 1,
+			"in_standard_filter": 1,
+		},
 		# The driver's name, written by the app.
 		{
 			"fieldname": "custom_driver_name__backend_",
@@ -185,6 +204,23 @@ CUSTOM_FIELDS: dict[str, list[dict]] = {
 			"label": "Order Code",
 			"fieldtype": "Data",
 			"insert_after": "custom_invoice_item_id",
+			"reqd": 0,
+			"unique": 0,
+			"read_only": 0,
+			"hidden": 0,
+			"allow_on_submit": 0,
+			"no_copy": 0,
+			"translatable": 1,
+		},
+	],
+	"Asset Category": [
+		# The app's asset type id for the category. Customer Asset (this app) fetches its asset_type_id
+		# from it when an asset has a category; declared here so that fetch always has a field to read.
+		{
+			"fieldname": "custom_hasura_asset_type_id",
+			"label": "Hasura Asset Type Id",
+			"fieldtype": "Data",
+			"insert_after": "column_break_3",
 			"reqd": 0,
 			"unique": 0,
 			"read_only": 0,
