@@ -16,13 +16,19 @@ the Quotation / Opportunity is applied per line off the catalog price.
 
 Failures are logged as an Issue (``issue_type = "Invoicing"``) without blocking
 the batch.
+
+A Sales Order with a delivery under quantity correction in its window waits
+(IDEV-3266, fuelbuddy_crm.invoice_hold): no invoice, cursor untouched, one log
+line per day; the next run takes the whole window again.
 """
 
 import frappe
 from frappe import _
 from frappe.utils import add_days, cint, cstr, flt, get_first_day, getdate, nowdate, strip_html
 
+from fuelbuddy_crm.dn_unbilled_litres import litres_rebuild_enabled, unbilled_rows
 from fuelbuddy_crm.force_majeure import fm_rate, fm_resolver, force_line
+from fuelbuddy_crm.invoice_hold import InvoiceHeldError, defer_sales_order, held_deliveries, so_line_names
 
 ISSUE_TYPE = "Invoicing"
 VALID_INVOICING_TYPES = ("Single Invoice", "Split Invoice")
@@ -51,6 +57,12 @@ def generate_sales_invoices():
 		try:
 			_invoice_sales_order(so_name, all_customers)
 			frappe.db.commit()
+		except InvoiceHeldError as e:
+			# A hold landed between the check in _invoice_sales_order and an invoice insert
+			# (fuelbuddy_crm.invoice_hold refuses it): the whole Sales Order waits, as if the
+			# check had seen it. Nothing of this Sales Order is kept, the cursor included.
+			frappe.db.rollback()
+			defer_sales_order(so_name, held=e.held)
 		except Exception as e:
 			frappe.db.rollback()
 			_log_invoicing_issue(
@@ -121,6 +133,14 @@ def _invoice_sales_order(so_name, all_customers=False):
 	if not window:
 		return
 	from_date, to_date, freq_days = window
+
+	# IDEV-3266: a delivery under quantity correction in the window holds the whole Sales Order
+	# (every invoice the window gives would make it INVOICED). The cursor is left alone, so the
+	# next run takes the whole window again.
+	held = held_deliveries(so_line_names(so_name), from_date, to_date)
+	if held:
+		defer_sales_order(so_name, from_date, to_date, held)
+		return
 
 	dns = frappe.db.sql(
 		"""
@@ -331,18 +351,30 @@ def rebuild_lines_from_dn_range(doc, method=None):
 	"""Sales Invoice ``before_validate``: the MANUAL period invoice. Replaces the
 	"Auto Pick of DN at Sales Invoice and Update of Qty" Server Script, keeping its
 	contract -- new invoices only; ``custom_dn_from_date`` / ``custom_dn_to_date``
-	define the period; only ``To Bill`` / ``Partly Billed`` DNs count, and a Partly
-	Billed row contributes just its unbilled fraction ``qty * (amount - billed_amt)
-	/ amount``; an SO line with no delivery in range refuses the save (the script
-	zeroed it, which ERPNext then refused as a zero quantity -- same outcome, one
-	message instead of two).
+	define the period; only ``To Bill`` / ``Partially Billed`` DNs count, and a
+	partly billed row contributes just its unbilled fraction ``qty * (amount -
+	billed_amt) / amount``; an SO line with no delivery in range refuses the save
+	(the script zeroed it, which ERPNext then refused as a zero quantity -- same
+	outcome, one message instead of two).
 
 	What changes: the rollup is per delivery, through ``_split_lines``, so a manual
-	invoice honours Force Majeure exactly like a scheduler one (IDEV-3129). Runs
+	invoice honours Force Majeure exactly like a scheduler one (IDEV-3129). The
+	script's filter said ``Partly Billed`` -- ERPNext's Purchase Receipt status; a
+	Delivery Note says ``Partially Billed`` -- so it never matched one, and the
+	unbilled lines of a DN split over two SO lines were left off the second SO's
+	invoice once the first was billed (IDEV-3270). Runs
 	before the controller's validate so ERPNext computes stock qty, amounts and
 	totals off the rebuilt lines itself; the Server Script ran after and had to
 	patch them by hand. Scheduler invoices arrive with their lines already built
-	per group and are skipped via the ``fb_auto_invoicing`` flag."""
+	per group and are skipped via the ``fb_auto_invoicing`` flag.
+
+	Litres, not amounts (IDEV-3270, owner decision 29 Sep): with the site switch
+	``invoice_rebuild_by_litres`` on, what is left to invoice is counted in litres
+	-- delivered litres less the litres already on live invoices for each DN line
+	(fuelbuddy_crm.dn_unbilled_litres) -- so a DN whose litres are all invoiced at a
+	discount or another price is not offered again. Off by default; switched on
+	only after the IDEV-3268 one-time billing repair has run on the site. Off, the
+	status filter and amount fraction above apply unchanged."""
 	if not doc.is_new() or doc.flags.get("fb_auto_invoicing"):
 		return
 	from_date, to_date = doc.get("custom_dn_from_date"), doc.get("custom_dn_to_date")
@@ -354,24 +386,10 @@ def rebuild_lines_from_dn_range(doc, method=None):
 	if not so_details:
 		return
 
-	dn_rows = frappe.db.sql(
-		"""
-		select dn.name as dn, dn.posting_date, dni.so_detail, dni.item_code,
-			case when coalesce(dni.amount, 0) > 0
-				then dni.qty * greatest((dni.amount - coalesce(dni.billed_amt, 0)) / dni.amount, 0)
-				else dni.qty end as qty
-		from `tabDelivery Note Item` dni
-		join `tabDelivery Note` dn on dn.name = dni.parent
-		where dn.docstatus = 1
-			and dn.status in ('To Bill', 'Partly Billed')
-			and dn.posting_date between %(from_date)s and %(to_date)s
-			and dni.so_detail in %(so_details)s
-		order by dn.posting_date, dn.name, dni.idx
-		""",
-		{"from_date": from_date, "to_date": to_date, "so_details": tuple(so_details)},
-		as_dict=True,
-	)
-	dn_rows = [d for d in dn_rows if flt(d.qty) > 0]  # fully billed rows add nothing
+	if litres_rebuild_enabled():
+		dn_rows = unbilled_rows(so_details, from_date, to_date)
+	else:
+		dn_rows = _unbilled_rows_by_amount(so_details, from_date, to_date)
 	dns_for = {}
 	for d in dn_rows:
 		dns_for.setdefault(d.so_detail, set()).add(d.dn)
@@ -394,6 +412,30 @@ def rebuild_lines_from_dn_range(doc, method=None):
 				),
 				alert=True,
 			)
+
+
+def _unbilled_rows_by_amount(so_details, from_date, to_date):
+	"""The rebuild's rows with the litres switch off: ``To Bill`` / ``Partially
+	Billed`` DNs in the window, each row's unbilled fraction by AMOUNT (ERPNext's
+	billing status); fully billed rows add nothing."""
+	dn_rows = frappe.db.sql(
+		"""
+		select dn.name as dn, dn.posting_date, dni.so_detail, dni.item_code,
+			case when coalesce(dni.amount, 0) > 0
+				then dni.qty * greatest((dni.amount - coalesce(dni.billed_amt, 0)) / dni.amount, 0)
+				else dni.qty end as qty
+		from `tabDelivery Note Item` dni
+		join `tabDelivery Note` dn on dn.name = dni.parent
+		where dn.docstatus = 1
+			and dn.status in ('To Bill', 'Partially Billed')
+			and dn.posting_date between %(from_date)s and %(to_date)s
+			and dni.so_detail in %(so_details)s
+		order by dn.posting_date, dn.name, dni.idx
+		""",
+		{"from_date": from_date, "to_date": to_date, "so_details": tuple(so_details)},
+		as_dict=True,
+	)
+	return [d for d in dn_rows if flt(d.qty) > 0]
 
 
 def update_so_last_invoiced(doc, method=None):
