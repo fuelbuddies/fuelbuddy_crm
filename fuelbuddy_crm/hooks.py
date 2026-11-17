@@ -89,7 +89,12 @@ doctype_js = {
 # ------------
 
 # before_install = "fuelbuddy_crm.install.before_install"
-# after_install = "fuelbuddy_crm.install.after_install"
+
+# Both re-apply the custom fields this app owns in code (custom_fields.py), outside the fixture
+# DocTypes below. A patch would not do: it runs once, and `bench install-app` marks it applied
+# without running it.
+after_install = "fuelbuddy_crm.install.after_install"
+after_migrate = "fuelbuddy_crm.install.after_migrate"
 
 # Uninstallation
 # ------------
