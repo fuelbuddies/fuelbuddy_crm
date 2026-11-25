@@ -1,0 +1,140 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:tank_name",
+ "creation": "2026-11-24 00:00:00.000000",
+ "description": "A FuelBuddy app tank: a vehicle compartment or a storage tank. Fuel stays in one ERP warehouse; Delivery Notes, Purchase Receipts and Stock Entries name their tanks in From Tank and To Tank. Entered by hand.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "tank_name",
+  "tank_id",
+  "vehicle_registration",
+  "compartment_no",
+  "column_break_tank",
+  "tank_type",
+  "capacity",
+  "disabled"
+ ],
+ "fields": [
+  {
+   "bold": 1,
+   "description": "Vehicle, then tank. Example: 1 Sharjah 64612 - Tank 1",
+   "fieldname": "tank_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Tank Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "description": "The tank's id in the FuelBuddy app (Ops: vehicle, tank). Postings find the tank by it.",
+   "fieldname": "tank_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "App Tank ID",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "vehicle_registration",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Vehicle Registration"
+  },
+  {
+   "fieldname": "compartment_no",
+   "fieldtype": "Int",
+   "label": "Compartment No"
+  },
+  {
+   "fieldname": "column_break_tank",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tank_type",
+   "fieldtype": "Select",
+   "label": "Tank Type",
+   "options": "\nBowser\nStorage Tank\nTPT Tank"
+  },
+  {
+   "fieldname": "capacity",
+   "fieldtype": "Float",
+   "label": "Capacity (L)"
+  },
+  {
+   "default": "0",
+   "fieldname": "disabled",
+   "fieldtype": "Check",
+   "label": "Disabled"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-24 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Fuelbuddy CRM",
+ "name": "Fuel Tank",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "import": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Stock Manager",
+   "write": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Stock User"
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User"
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Purchase User"
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User"
+  }
+ ],
+ "quick_entry": 0,
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
