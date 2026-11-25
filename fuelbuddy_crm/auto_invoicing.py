@@ -579,19 +579,16 @@ def _apply_quotation_discount(si, so):
 		else:
 			per_unit = flt(slab.discount_value)
 	else:
-		# Non-Slab: normally the Percentage/Per Litre selector decides — but when
-		# BOTH rates are non-zero they cap each other: the SMALLER effective
-		# discount applies, i.e. the higher after-discount rate wins (business
-		# rule, 31 Jul 2026). Pure RATE comparison — the max stays out of it.
 		pct_val = flt(_src_get(src, "custom_percentage_value"))
 		per_l_val = flt(_src_get(src, "custom_per_litre_value"))
+		selector = (_src_get(src, "custom_percentageper_litre") or "").strip()
 		list_total = sum(flt(i.price_list_rate) * flt(i.qty) for i in items)
-		if pct_val and per_l_val:
+		# The selector picks the value (the form hides the other one, IDEV-3567); blank: the non-zero one, smaller if both.
+		if selector in ("Percentage", "Per Litre"):
+			use_pct = selector == "Percentage"
+		elif pct_val and per_l_val:
 			use_pct = list_total * pct_val / 100.0 <= per_l_val * qty
 		else:
-			# One (or both) rate is zero: apply the non-zero one — the
-			# Percentage/Per Litre selector is display-only and can't zero out
-			# a filled rate. Both zero falls through to intended<=0 (no-op).
 			use_pct = bool(pct_val)
 		if use_pct:
 			pct = pct_val
