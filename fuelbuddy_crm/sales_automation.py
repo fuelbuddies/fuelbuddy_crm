@@ -4,6 +4,7 @@
 import frappe
 from frappe.utils import add_months, flt, get_first_day, get_last_day, getdate, nowdate
 
+from fuelbuddy_crm.dn_validation import _drafted_qty
 from fuelbuddy_crm.quotation_link import _payment_terms_template_for
 from fuelbuddy_crm.validations import _ex_vat_rate
 
@@ -474,13 +475,14 @@ def _previous_month_so(quotation, month_start):
 
 
 def _delivered_qty_by_item(so_name):
-	"""Total delivered quantity per item_code on a Sales Order (net of returns, since
-	ERPNext reduces delivered_qty for sales returns). {item_code: delivered_qty}."""
+	"""Total delivered quantity per item_code on a Sales Order: submitted (net of returns,
+	since ERPNext reduces delivered_qty for sales returns) plus draft Delivery Notes,
+	which the DN drain submits only days later. {item_code: qty}."""
 	out = {}
 	for it in frappe.get_all(
-		"Sales Order Item", filters={"parent": so_name}, fields=["item_code", "delivered_qty"]
+		"Sales Order Item", filters={"parent": so_name}, fields=["name", "item_code", "delivered_qty"]
 	):
-		out[it.item_code] = out.get(it.item_code, 0) + flt(it.delivered_qty)
+		out[it.item_code] = out.get(it.item_code, 0) + flt(it.delivered_qty) + _drafted_qty(it.name)
 	return out
 
 
