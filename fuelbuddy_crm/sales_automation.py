@@ -467,13 +467,21 @@ def _previous_month_so(quotation, month_start):
 
 
 def _delivered_qty_by_item(so_name):
-	"""Total delivered quantity per item_code on a Sales Order (net of returns, since
-	ERPNext reduces delivered_qty for sales returns). {item_code: delivered_qty}."""
+	"""Total delivered quantity per item_code on a Sales Order: submitted (net of returns,
+	since ERPNext reduces delivered_qty for sales returns) plus draft Delivery Notes,
+	which the DN drain submits only days later. {item_code: qty}."""
 	out = {}
 	for it in frappe.get_all(
-		"Sales Order Item", filters={"parent": so_name}, fields=["item_code", "delivered_qty"]
+		"Sales Order Item", filters={"parent": so_name}, fields=["name", "item_code", "delivered_qty"]
 	):
-		out[it.item_code] = out.get(it.item_code, 0) + flt(it.delivered_qty)
+		# inline of main's dn_validation._drafted_qty, which version-15 does not have
+		drafted = frappe.db.sql(
+			"""select coalesce(sum(dni.qty), 0) from `tabDelivery Note Item` dni
+			inner join `tabDelivery Note` dn on dn.name = dni.parent
+			where dni.so_detail = %s and dn.docstatus = 0""",
+			it.name,
+		)[0][0]
+		out[it.item_code] = out.get(it.item_code, 0) + flt(it.delivered_qty) + flt(drafted)
 	return out
 
 
